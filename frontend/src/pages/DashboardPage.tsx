@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
-import { FiCreditCard, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
+import { FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
 import { AppShell } from '../components/layout/AppShell';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { OverviewChart } from '../components/dashboard/OverviewChart';
@@ -14,6 +14,7 @@ import { extractErrorMessage } from '../api/client';
 import type { RecentTransactionsFilter, TransactionFilters } from '../types';
 
 const PAID_ONLY_TOOLTIP = 'Only Paid transactions are counted. Pending transactions are excluded from all totals.';
+const SAVINGS_TOOLTIP = 'Savings reflects your net balance after all paid expenses.';
 
 export function DashboardPage() {
   const [filters, setFilters] = useState<TransactionFilters>({});
@@ -57,6 +58,14 @@ export function DashboardPage() {
             accent="#f5a623"
             isLoading={summaryQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
+          />
+          <MetricCard
+            label="Savings"
+            value={summaryQuery.data?.summary.balance ?? 0}
+            icon={FiPieChart}
+            accent="#38bdf8"
+            isLoading={summaryQuery.isLoading}
+            tooltip={SAVINGS_TOOLTIP}
           />
         </HStack>
 
