@@ -64,7 +64,11 @@ export function DashboardPage() {
 
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
           <GridItem>
-            <OverviewChart data={summaryQuery.data?.monthlyTrend ?? []} isLoading={summaryQuery.isLoading} />
+            <OverviewChart
+              data={summaryQuery.data?.monthlyTrend ?? []}
+              yearly={summaryQuery.data?.yearly ?? {}}
+              isLoading={summaryQuery.isLoading}
+            />
           </GridItem>
           <GridItem>
             <Stack spacing={6} h="full">

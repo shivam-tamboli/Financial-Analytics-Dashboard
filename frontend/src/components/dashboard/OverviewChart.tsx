@@ -1,4 +1,5 @@
-import { Box, Flex, HStack, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
+import { useMemo, useState } from 'react';
+import { Box, Flex, HStack, Select, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
 import {
   CartesianGrid,
   Line,
@@ -10,21 +11,35 @@ import {
 } from 'recharts';
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import type { MonthlyTrendPoint } from '../../types';
+import type { MonthlyTrendPoint, YearBreakdown } from '../../types';
 import { formatCompactCurrency, formatCurrency, formatMonthLabel } from '../../utils/format';
 import { EmptyState } from '../common/EmptyState';
 
 interface OverviewChartProps {
   data: MonthlyTrendPoint[];
+  yearly: Record<string, YearBreakdown>;
   isLoading: boolean;
 }
 
-function ChartTooltip({ active, payload, label }: TooltipContentProps<ValueType, NameType>) {
+type ChartView = 'monthly' | 'yearly';
+
+interface ChartPoint {
+  label: string;
+  income: number;
+  expense: number;
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+  view,
+}: TooltipContentProps<ValueType, NameType> & { view: ChartView }) {
   if (!active || !payload?.length) return null;
   return (
     <Box bg="surface.panelAlt" border="1px solid" borderColor="surface.border" borderRadius="md" px={3} py={2}>
       <Text fontSize="xs" color="surface.muted" mb={1}>
-        {formatMonthLabel(String(label))}
+        {view === 'monthly' ? formatMonthLabel(String(label)) : label}
       </Text>
       {payload.map((entry) => (
         <Text key={String(entry.name)} fontSize="sm" fontWeight={600} color={entry.color}>
@@ -35,10 +50,23 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps<ValueType,
   );
 }
 
-export function OverviewChart({ data, isLoading }: OverviewChartProps) {
+export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
+  const [view, setView] = useState<ChartView>('monthly');
   const gridStroke = useColorModeValue('#e2e8f0', '#232a32');
   const axisStroke = useColorModeValue('#4a5568', '#8b95a1');
   const axisLabelFill = useColorModeValue('#2d3748', '#c3cbd4');
+
+  const chartData: ChartPoint[] = useMemo(() => {
+    if (view === 'yearly') {
+      return Object.entries(yearly)
+        .map(([year, breakdown]) => ({ label: year, income: breakdown.revenue, expense: breakdown.expenses }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
+    return data.map((point) => ({ label: point.month, income: point.income, expense: point.expense }));
+  }, [view, data, yearly]);
+
+  const xAxisLabel = view === 'monthly' ? 'Month' : 'Year';
+  const tickFormatter = view === 'monthly' ? formatMonthLabel : (v: string) => v;
 
   return (
     <Box
@@ -54,34 +82,50 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
         <Text fontWeight={700} fontSize="lg">
           Overview
         </Text>
-        <HStack spacing={4} fontSize="xs" color="surface.muted">
-          <HStack spacing={1.5}>
-            <Box boxSize={2} borderRadius="full" bg="brand.500" />
-            <Text>Income</Text>
+        <HStack spacing={4}>
+          <HStack spacing={4} fontSize="xs" color="surface.muted">
+            <HStack spacing={1.5}>
+              <Box boxSize={2} borderRadius="full" bg="brand.500" />
+              <Text>Income</Text>
+            </HStack>
+            <HStack spacing={1.5}>
+              <Box boxSize={2} borderRadius="full" bg="accent.500" />
+              <Text>Expenses</Text>
+            </HStack>
           </HStack>
-          <HStack spacing={1.5}>
-            <Box boxSize={2} borderRadius="full" bg="accent.500" />
-            <Text>Expenses</Text>
-          </HStack>
+          <Select
+            size="sm"
+            w="auto"
+            value={view}
+            onChange={(e) => setView(e.target.value as ChartView)}
+            bg="surface.panelAlt"
+            border="1px solid"
+            borderColor="surface.border"
+            borderRadius="full"
+            fontSize="xs"
+          >
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </Select>
         </HStack>
       </Flex>
 
       {isLoading ? (
         <Skeleton height="280px" startColor="surface.panelAlt" endColor="surface.border" borderRadius="lg" />
-      ) : data.length === 0 ? (
+      ) : chartData.length === 0 ? (
         <EmptyState title="No trend data" description="Try widening your filters to see income vs. expense trends." />
       ) : (
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 18 }}>
+          <LineChart data={chartData} margin={{ top: 8, right: 8, left: 4, bottom: 18 }}>
             <CartesianGrid stroke={gridStroke} vertical={false} />
             <XAxis
-              dataKey="month"
-              tickFormatter={formatMonthLabel}
+              dataKey="label"
+              tickFormatter={tickFormatter}
               stroke={axisStroke}
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              label={{ value: 'Month', position: 'insideBottom', offset: -12, fill: axisLabelFill, fontSize: 12 }}
+              label={{ value: xAxisLabel, position: 'insideBottom', offset: -12, fill: axisLabelFill, fontSize: 12 }}
             />
             <YAxis
               stroke={axisStroke}
@@ -91,7 +135,7 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
               tickFormatter={(v) => formatCompactCurrency(v)}
               label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', fill: axisLabelFill, fontSize: 12 }}
             />
-            <Tooltip content={ChartTooltip} />
+            <Tooltip content={(props) => <ChartTooltip {...props} view={view} />} />
             <Line
               type="monotone"
               dataKey="income"

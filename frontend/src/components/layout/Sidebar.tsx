@@ -83,7 +83,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               {isActive && (
                 <Box position="absolute" right={-3} top={0} bottom={0} w="3px" bg="brand.500" borderRadius="full" />
               )}
-              <Icon as={item.icon} boxSize={4.5} />
+              <Icon as={item.icon} boxSize={5} />
               <Text fontSize="sm" fontWeight={isActive ? 600 : 500}>
                 {item.label}
               </Text>
