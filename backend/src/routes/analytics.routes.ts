@@ -11,8 +11,17 @@ router.use(requireAuth);
  * /api/analytics/kpis:
  *   get:
  *     summary: Key metrics — revenue, expenses, balance, transaction count, average value, top category
- *     description: Paid-only, same rule as /transactions/summary.
+ *     description: >
+ *       Defaults to Paid-only, same rule as /transactions/summary. Pass `status=Pending`
+ *       or `status=all` to compute the same metrics over a different slice — count and
+ *       averageTransactionValue always describe the exact same set as revenue/expenses,
+ *       whichever status filter is in effect.
  *     tags: [Analytics]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [Paid, Pending, all], default: Paid }
+ *         description: Accepts 'Paid'/'Pending' in any case, plus 'completed' as a synonym for 'Paid'.
  *     responses:
  *       200:
  *         description: KPI snapshot
@@ -21,12 +30,16 @@ router.use(requireAuth);
  *             schema:
  *               type: object
  *               properties:
- *                 totalRevenue: { type: number }
- *                 totalExpenses: { type: number }
- *                 balance: { type: number }
- *                 transactionCount: { type: integer }
- *                 averageTransactionValue: { type: number }
- *                 topCategory: { type: string, enum: [Revenue, Expense] }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     filter: { type: string, enum: [Paid, Pending, all], description: The status filter actually applied. }
+ *                     revenue: { type: number }
+ *                     expenses: { type: number }
+ *                     balance: { type: number }
+ *                     transactionCount: { type: integer }
+ *                     averageTransactionValue: { type: number }
+ *                     topCategory: { type: string, enum: [Revenue, Expense] }
  *       401:
  *         description: Missing or invalid token
  */
@@ -36,30 +49,44 @@ router.get('/kpis', getKpis);
  * @openapi
  * /api/analytics/cashflow:
  *   get:
- *     summary: Monthly cashflow (revenue minus expenses) for the current calendar year
+ *     summary: Monthly cashflow (revenue minus expenses) for a year
  *     description: >
- *       "Current year" is the real calendar year the server is running in. With the
- *       bundled sample data (all dated 2024), this returns all-zero months unless
- *       the server's clock is actually in 2024.
+ *       Defaults to Paid-only and to the most recent year that has data under that
+ *       status filter — not the real calendar year the server is running in, which
+ *       would return 12 zeroed months against a fixed sample dataset. Pass `year` to
+ *       request a specific year explicitly, or `status` to change which transactions
+ *       count.
  *     tags: [Analytics]
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         schema: { type: integer, example: 2024 }
+ *         description: Defaults to the latest year with data under the given status filter.
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [Paid, Pending, all], default: Paid }
  *     responses:
  *       200:
- *         description: 12 months of cashflow for the current year
+ *         description: 12 months of cashflow for the resolved year
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 year: { type: integer }
- *                 months:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       month: { type: string, example: '2026-01' }
- *                       revenue: { type: number }
- *                       expenses: { type: number }
- *                       cashflow: { type: number }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     year: { type: integer, example: 2024 }
+ *                     filter: { type: string, enum: [Paid, Pending, all] }
+ *                     months:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           month: { type: string, example: '2024-01' }
+ *                           revenue: { type: number }
+ *                           expenses: { type: number }
+ *                           cashflow: { type: number }
  *       401:
  *         description: Missing or invalid token
  */

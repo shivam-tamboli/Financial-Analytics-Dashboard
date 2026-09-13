@@ -20,11 +20,13 @@ export const getUserSummary = asyncHandler(async (req: Request, res: Response) =
   }
 
   res.json({
-    user_id: id,
-    user_name: userDoc.user_name,
-    revenue: totals.revenue,
-    expenses: totals.expenses,
-    balance: totals.balance,
-    transactionCount,
+    data: {
+      user_id: id,
+      user_name: userDoc.user_name,
+      revenue: totals.revenue,
+      expenses: totals.expenses,
+      balance: totals.balance,
+      transactionCount,
+    },
   });
 });

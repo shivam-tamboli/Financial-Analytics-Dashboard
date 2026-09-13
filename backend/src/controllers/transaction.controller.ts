@@ -6,11 +6,13 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import {
   buildTransactionFilter,
-  computePaidTotals,
+  computeTotals,
   EXPORTABLE_COLUMNS,
   ExportableColumn,
   PAID_STATUS,
+  resolveStatusMatch,
   round2,
+  statusFilterQuerySchema,
   toTransactionDTO,
   transactionFilterSchema,
   transactionQuerySchema,
@@ -204,28 +206,33 @@ export const listTransactionUsers = asyncHandler(async (_req: Request, res: Resp
   });
 });
 
-export const getTransactionStats = asyncHandler(async (_req: Request, res: Response) => {
-  // Deliberately not Paid-only: this is about the shape of the dataset itself
-  // (how many transactions, how much money has moved through it, how it splits
-  // by status/category), not the "what's actually settled" business totals that
-  // /summary and /analytics/kpis report. Pending transactions are real rows and
-  // belong in a count/volume breakdown.
+export const getTransactionStats = asyncHandler(async (req: Request, res: Response) => {
+  // Defaults to Paid-only, same as every other aggregate endpoint — this used to
+  // be unconditionally all-statuses, which meant its byCategory "Revenue" total
+  // didn't match /summary or /analytics/kpis even though all three used the same
+  // word. Pass status=all (or status=Pending) to see a different slice.
+  const { status } = statusFilterQuerySchema.parse(req.query);
+  const matchStatus = resolveStatusMatch(status);
+
   const [totalCount, volumeAgg, byStatus, byCategory] = await Promise.all([
-    Transaction.countDocuments({}),
-    Transaction.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
-    Transaction.aggregate([{ $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
-    Transaction.aggregate([{ $group: { _id: '$category', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
+    Transaction.countDocuments(matchStatus),
+    Transaction.aggregate([{ $match: matchStatus }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+    Transaction.aggregate([{ $match: matchStatus }, { $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
+    Transaction.aggregate([{ $match: matchStatus }, { $group: { _id: '$category', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
   ]);
 
   res.json({
-    totalCount,
-    totalVolume: round2(volumeAgg[0]?.total ?? 0),
-    byStatus: byStatus.map((s) => ({ status: s._id as string, count: s.count as number, total: round2(s.total) })),
-    byCategory: byCategory.map((c) => ({ category: c._id as string, count: c.count as number, total: round2(c.total) })),
+    data: {
+      filter: status,
+      totalCount,
+      totalVolume: round2(volumeAgg[0]?.total ?? 0),
+      byStatus: byStatus.map((s) => ({ status: s._id as string, count: s.count as number, total: round2(s.total) })),
+      byCategory: byCategory.map((c) => ({ category: c._id as string, count: c.count as number, total: round2(c.total) })),
+    },
   });
 });
 
-const compareQuerySchema = z.object({
+const compareQuerySchema = statusFilterQuerySchema.extend({
   periodA: z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM'),
   periodB: z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM'),
 });
@@ -238,17 +245,26 @@ function periodFilter(period: string): FilterQuery<TransactionDocument> {
 }
 
 export const compareSummaryPeriods = asyncHandler(async (req: Request, res: Response) => {
-  const { periodA, periodB } = compareQuerySchema.parse(req.query);
+  const { periodA, periodB, status } = compareQuerySchema.parse(req.query);
+  const matchStatus = resolveStatusMatch(status);
 
-  const [a, b] = await Promise.all([computePaidTotals(periodFilter(periodA)), computePaidTotals(periodFilter(periodB))]);
+  const [a, b] = await Promise.all([
+    computeTotals({ ...periodFilter(periodA), ...matchStatus }),
+    computeTotals({ ...periodFilter(periodB), ...matchStatus }),
+  ]);
 
   res.json({
-    periodA: { period: periodA, ...a },
-    periodB: { period: periodB, ...b },
-    difference: {
-      revenue: round2(b.revenue - a.revenue),
-      expenses: round2(b.expenses - a.expenses),
-      balance: round2(b.balance - a.balance),
+    data: {
+      // Explicit, not just implied by a doc comment — this is what was actually
+      // compared, whichever status filter was in effect for this request.
+      filter: status,
+      periodA: { period: periodA, ...a },
+      periodB: { period: periodB, ...b },
+      difference: {
+        revenue: round2(b.revenue - a.revenue),
+        expenses: round2(b.expenses - a.expenses),
+        balance: round2(b.balance - a.balance),
+      },
     },
   });
 });

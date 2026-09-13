@@ -104,34 +104,48 @@ params, and try-it-out requests are at **`/api/docs`** (Swagger UI) once the bac
 - `GET /api/transactions/:id` — a single transaction by its Mongo id
 - `GET /api/transactions/summary` — totals, category breakdown, yearly/monthly rollup, recent transactions
 - `GET /api/transactions/summary/compare?periodA=YYYY-MM&periodB=YYYY-MM` — compare two months
-- `GET /api/transactions/stats` — dataset-wide counts and volume, not Paid-only (includes Pending)
+- `GET /api/transactions/stats` — dataset counts, volume, and breakdowns by status/category
 - `GET /api/transactions/users` — for filter dropdowns
 - `POST /api/transactions/export` — CSV, configurable columns
 - `GET /api/analytics/kpis` — revenue, expenses, balance, transaction count, average value, top category
-- `GET /api/analytics/cashflow` — Paid revenue minus expenses per month, for the current calendar year
+- `GET /api/analytics/cashflow` — revenue minus expenses per month, for a given year
 - `GET /api/users/:id/summary` — one user's revenue/expenses/balance/transaction count (`:id` is a `user_id` like `user_001`, not a login account)
 
 Vocabulary is consistent everywhere: **revenue** and **expenses**, never "income" or a singular
-"expense". Status is always exactly `Paid` or `Pending` in output — `completed` and other
+"expense", and never `totalRevenue`/`totalExpenses` — same words, same meaning, on every
+endpoint. Status is always exactly `Paid` or `Pending` in output — `completed` and other
 casings are accepted as input and normalized before they ever reach the database or a filter.
 
-One rule worth knowing since it's not obvious from the endpoint alone: revenue, expenses, and
-balance on `/summary`, `/analytics/kpis`, `/analytics/cashflow`, and `/users/:id/summary` only
-ever count **Paid** transactions. Pending ones still show up in the transaction table and the
-recent-transactions list (`recentTransactions.data`, with `total`/`limit` alongside it), they
-just don't move any of the totals. There's no separate "savings" field — it was always
-identical to balance once Pending stopped counting, so it didn't carry any information balance
-didn't already have.
+**Paid-only is the default everywhere**, not just on `/summary`: `/analytics/kpis`,
+`/analytics/cashflow`, `/transactions/stats`, and `/transactions/summary/compare` all default
+to Paid-only too, and all accept `?status=Paid|Pending|all` to see a different slice —
+whichever status was actually applied comes back in the response as `data.filter`, so it's
+never ambiguous from the numbers alone. Count and average always describe the same filtered
+set as the revenue/expenses they go with. Pending transactions still show up in the
+transaction table and the recent-transactions list (`recentTransactions.data`, with
+`total`/`limit` alongside it) regardless — they just don't move a total unless you ask for
+them. There's no separate "savings" field in the API — it was always identical to balance once
+Pending stopped counting by default, so it didn't carry any information balance didn't already
+have (the dashboard's Savings card still exists, showing that same balance value, since a
+metric card and an API field aren't the same thing).
 
 Monthly figures live at `yearly[year].monthly`, keyed `"YYYY-MM"` — there's no separate
 `monthlyTrend` array anymore, one place for that data is enough.
 
+**Response envelope:** `/analytics/*`, `/users/:id/summary`, `/transactions/:id`,
+`/transactions/stats`, and `/transactions/summary/compare` all wrap their payload as
+`{ data: {...} }`. `/transactions` (list) and `/transactions/summary` keep their existing
+shapes (`{ data, pagination }` and `{ summary, categoryBreakdown, yearly, recentTransactions }`
+respectively) — the list's `data` is already the array itself, not something needing a second
+layer of wrapping. The frontend doesn't call the newer analytics/users/stats/compare endpoints
+yet — they exist as pure backend + Swagger for now.
+
 ## Features
 
 - JWT login/logout, protected API routes
-- Dashboard: balance/revenue/expenses cards (each with an info tooltip explaining the
-  Paid-only rule), revenue-vs-expenses chart with a Monthly/Yearly toggle, category
-  breakdown, recent transactions (filterable by status, user, month, or year)
+- Dashboard: balance/revenue/expenses/savings cards (each with an info tooltip), revenue-vs-expenses
+  chart with a Monthly/Yearly toggle, category breakdown, recent transactions (filterable by
+  status, user, month, or year)
 - Transaction table: search, filters (calendar date range, amount, category, status, user),
   sortable columns, pagination
 - CSV export: pick columns, export the current filtered view or everything, downloads

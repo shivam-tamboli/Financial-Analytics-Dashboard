@@ -29,12 +29,15 @@ router.use(requireAuth);
  *             schema:
  *               type: object
  *               properties:
- *                 user_id: { type: string }
- *                 user_name: { type: string }
- *                 revenue: { type: number }
- *                 expenses: { type: number }
- *                 balance: { type: number }
- *                 transactionCount: { type: integer }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user_id: { type: string }
+ *                     user_name: { type: string }
+ *                     revenue: { type: number }
+ *                     expenses: { type: number }
+ *                     balance: { type: number }
+ *                     transactionCount: { type: integer }
  *       401:
  *         description: Missing or invalid token
  *       404:

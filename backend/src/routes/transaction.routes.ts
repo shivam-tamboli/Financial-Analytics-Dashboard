@@ -190,7 +190,11 @@ router.get('/summary', getTransactionSummary);
  * @openapi
  * /api/transactions/summary/compare:
  *   get:
- *     summary: Compare Paid revenue/expenses/balance between two months
+ *     summary: Compare revenue/expenses/balance between two months
+ *     description: >
+ *       Defaults to Paid-only — the response's `data.filter` field states exactly
+ *       which status was compared, so it's never ambiguous from the numbers alone.
+ *       Pass `status=Pending` or `status=all` to compare a different slice instead.
  *     tags: [Transactions]
  *     parameters:
  *       - in: query
@@ -201,6 +205,9 @@ router.get('/summary', getTransactionSummary);
  *         name: periodB
  *         required: true
  *         schema: { type: string, example: '2024-02' }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [Paid, Pending, all], default: Paid }
  *     responses:
  *       200:
  *         description: Comparison
@@ -209,9 +216,13 @@ router.get('/summary', getTransactionSummary);
  *             schema:
  *               type: object
  *               properties:
- *                 periodA: { type: object }
- *                 periodB: { type: object }
- *                 difference: { type: object }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     filter: { type: string, enum: [Paid, Pending, all], description: The status filter actually applied. }
+ *                     periodA: { type: object }
+ *                     periodB: { type: object }
+ *                     difference: { type: object }
  *       400:
  *         description: periodA/periodB not in YYYY-MM format
  *       401:
@@ -250,9 +261,20 @@ router.get('/users', listTransactionUsers);
  * @openapi
  * /api/transactions/stats:
  *   get:
- *     summary: Dataset-wide stats — total count, total volume, breakdown by status, breakdown by category
- *     description: Not Paid-only — this describes the shape of the whole dataset, including Pending rows.
+ *     summary: Dataset stats — total count, total volume, breakdown by status, breakdown by category
+ *     description: >
+ *       Defaults to Paid-only, same as every other aggregate endpoint — so
+ *       `data.byCategory`'s Revenue/Expense totals match /transactions/summary and
+ *       /analytics/kpis exactly under the default. Pass `status=all` to see the
+ *       whole dataset including Pending, or `status=Pending` for just that slice.
+ *       `data.byStatus` is computed over that same filtered set, so filtering to a
+ *       single status makes it a (correct, if unremarkable) single-row breakdown —
+ *       use `status=all` if you actually want the Paid-vs-Pending split.
  *     tags: [Transactions]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [Paid, Pending, all], default: Paid }
  *     responses:
  *       200:
  *         description: Stats
@@ -261,18 +283,22 @@ router.get('/users', listTransactionUsers);
  *             schema:
  *               type: object
  *               properties:
- *                 totalCount: { type: integer }
- *                 totalVolume: { type: number }
- *                 byStatus:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties: { status: { type: string }, count: { type: integer }, total: { type: number } }
- *                 byCategory:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties: { category: { type: string }, count: { type: integer }, total: { type: number } }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     filter: { type: string, enum: [Paid, Pending, all], description: The status filter actually applied. }
+ *                     totalCount: { type: integer }
+ *                     totalVolume: { type: number }
+ *                     byStatus:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties: { status: { type: string }, count: { type: integer }, total: { type: number } }
+ *                     byCategory:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties: { category: { type: string }, count: { type: integer }, total: { type: number } }
  *       401:
  *         description: Missing or invalid token
  */

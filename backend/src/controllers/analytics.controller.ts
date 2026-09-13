@@ -1,43 +1,67 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { Transaction } from '../models/Transaction';
 import { asyncHandler } from '../utils/asyncHandler';
-import { PAID_STATUS, round2 } from '../services/transaction.service';
+import { resolveStatusMatch, round2, statusFilterQuerySchema } from '../services/transaction.service';
 
-export const getKpis = asyncHandler(async (_req: Request, res: Response) => {
-  // Paid-only, consistent with /transactions/summary's revenue/expenses/balance.
+export const getKpis = asyncHandler(async (req: Request, res: Response) => {
+  const { status } = statusFilterQuerySchema.parse(req.query);
+  const matchStatus = resolveStatusMatch(status);
+
   const rows = await Transaction.aggregate([
-    { $match: { status: PAID_STATUS } },
+    { $match: matchStatus },
     { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
   ]);
   const revenueRow = rows.find((r) => r._id === 'Revenue');
   const expenseRow = rows.find((r) => r._id === 'Expense');
   const revenue = revenueRow?.total ?? 0;
   const expenses = expenseRow?.total ?? 0;
+  // Same rows feed count, average, and topCategory, so all three are guaranteed
+  // to describe the same filtered set as revenue/expenses — there's no way for
+  // count to be "Paid-only" while average quietly includes Pending.
   const transactionCount = (revenueRow?.count ?? 0) + (expenseRow?.count ?? 0);
   const averageTransactionValue = transactionCount > 0 ? (revenue + expenses) / transactionCount : 0;
 
   res.json({
-    totalRevenue: round2(revenue),
-    totalExpenses: round2(expenses),
-    balance: round2(revenue - expenses),
-    transactionCount,
-    averageTransactionValue: round2(averageTransactionValue),
-    topCategory: revenue >= expenses ? 'Revenue' : 'Expense',
+    data: {
+      filter: status,
+      revenue: round2(revenue),
+      expenses: round2(expenses),
+      balance: round2(revenue - expenses),
+      transactionCount,
+      averageTransactionValue: round2(averageTransactionValue),
+      topCategory: revenue >= expenses ? 'Revenue' : 'Expense',
+    },
   });
 });
 
-export const getCashflow = asyncHandler(async (_req: Request, res: Response) => {
-  // "Current year" means the real calendar year the server is running in, not the
-  // most recent year present in the data — with this sample dataset (all dated
-  // 2024) that means every month here will legitimately come back at 0 unless the
-  // year the app happens to run in matches. That's correct behavior for what was
-  // asked, not a bug in the query.
-  const year = new Date().getUTCFullYear();
+const cashflowQuerySchema = statusFilterQuerySchema.extend({
+  year: z.coerce.number().int().optional(),
+});
+
+export const getCashflow = asyncHandler(async (req: Request, res: Response) => {
+  const { status, year: requestedYear } = cashflowQuerySchema.parse(req.query);
+  const matchStatus = resolveStatusMatch(status);
+
+  let year = requestedYear;
+  if (year === undefined) {
+    // Default to the most recent year that actually has data under this status
+    // filter, rather than the real calendar year the server happens to be
+    // running in — with a fixed sample dataset (all dated 2024), "today's year"
+    // is almost never the right default and just returns 12 zeroed months.
+    const latest = await Transaction.findOne(matchStatus).sort({ date: -1 }).select('date').lean();
+    if (!latest) {
+      res.json({ data: { year: null, filter: status, months: [] } });
+      return;
+    }
+    year = latest.date.getUTCFullYear();
+  }
+
   const start = new Date(Date.UTC(year, 0, 1));
   const end = new Date(Date.UTC(year + 1, 0, 1));
 
   const rows = await Transaction.aggregate([
-    { $match: { status: PAID_STATUS, date: { $gte: start, $lt: end } } },
+    { $match: { ...matchStatus, date: { $gte: start, $lt: end } } },
     { $group: { _id: { month: { $month: '$date' }, category: '$category' }, total: { $sum: '$amount' } } },
   ]);
 
@@ -53,5 +77,5 @@ export const getCashflow = asyncHandler(async (_req: Request, res: Response) => 
     };
   });
 
-  res.json({ year, months });
+  res.json({ data: { year, filter: status, months } });
 });

@@ -19,6 +19,7 @@ function normalizeStatusInput(value: unknown): unknown {
   const lower = value.toLowerCase();
   if (lower === 'paid' || lower === 'completed') return 'Paid';
   if (lower === 'pending') return 'Pending';
+  if (lower === 'all') return 'all';
   return value;
 }
 
@@ -121,15 +122,38 @@ export interface PaidTotals {
   balance: number;
 }
 
-// Shared by /transactions/summary, /analytics/kpis, /users/:id/summary, and the
-// period-compare endpoint — every place that needs "Paid-only revenue/expenses
-// for this filter" reduces to this one aggregation.
-export async function computePaidTotals(filter: FilterQuery<TransactionDocument>): Promise<PaidTotals> {
+// Revenue/expenses/balance for whatever filter the caller already built —
+// no status opinion baked in. Used where the caller resolves the status
+// filter itself (e.g. the compare endpoint, which accepts ?status=).
+export async function computeTotals(filter: FilterQuery<TransactionDocument>): Promise<PaidTotals> {
   const rows = await Transaction.aggregate([
-    { $match: { ...filter, status: PAID_STATUS } },
+    { $match: filter },
     { $group: { _id: '$category', total: { $sum: '$amount' } } },
   ]);
   const revenue = rows.find((r) => r._id === 'Revenue')?.total ?? 0;
   const expenses = rows.find((r) => r._id === 'Expense')?.total ?? 0;
   return { revenue: round2(revenue), expenses: round2(expenses), balance: round2(revenue - expenses) };
+}
+
+// Shared by /transactions/summary and /users/:id/summary — these always mean
+// Paid-only, with no caller-facing override.
+export async function computePaidTotals(filter: FilterQuery<TransactionDocument>): Promise<PaidTotals> {
+  return computeTotals({ ...filter, status: PAID_STATUS });
+}
+
+// ?status= support for /analytics/kpis, /analytics/cashflow, /transactions/stats,
+// and /transactions/summary/compare — defaults to Paid, matching the rest of the
+// API's "Pending never counts toward a total unless you explicitly ask" rule.
+// 'all' is a query-only sentinel, not a real status value, so it isn't part of
+// the DB enum — resolveStatusMatch turns it into "no status filter" rather than
+// a literal { status: 'all' } match, which would return nothing.
+export const STATUS_FILTER_VALUES = ['Paid', 'Pending', 'all'] as const;
+export type StatusFilterValue = (typeof STATUS_FILTER_VALUES)[number];
+
+export const statusFilterQuerySchema = z.object({
+  status: z.preprocess(normalizeStatusInput, z.enum(STATUS_FILTER_VALUES).default('Paid')),
+});
+
+export function resolveStatusMatch(status: StatusFilterValue): FilterQuery<TransactionDocument> {
+  return status === 'all' ? {} : { status };
 }
