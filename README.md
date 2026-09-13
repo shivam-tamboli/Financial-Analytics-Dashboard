@@ -12,6 +12,19 @@ backend/    Express API, Mongoose models, seed script
 frontend/   Vite + React SPA
 ```
 
+**Live:** https://financial-analytics-dashboard-chi-gold.vercel.app/
+
+## System overview
+
+```mermaid
+flowchart LR
+    A[React SPA<br/>Vercel] -- HTTPS + JWT --> B[Express API<br/>Render]
+    B -- Mongoose --> C[(MongoDB Atlas)]
+```
+
+The frontend never talks to the database directly — every request goes through the API,
+which validates the JWT and does the actual querying.
+
 ## Getting it running
 
 You need Node 18+ and a MongoDB instance — local `mongod`, Docker, or Atlas all work.
@@ -54,7 +67,7 @@ connecting to the wrong thing (or nothing).
 | `MONGO_URI` | Required. Local: `mongodb://127.0.0.1:27017/finance_dashboard`. Atlas: `mongodb+srv://<user>:<password>@<cluster-host>/finance_dashboard?appName=Cluster0` |
 | `JWT_SECRET` | Required. Anything long and random works — `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `JWT_EXPIRES_IN` | Token lifetime, defaults to `1d` |
-| `CORS_ORIGIN` | Comma-separated allowed origins, e.g. `http://localhost:5173,https://your-app.vercel.app`. Add your deployed frontend URL here once you have one |
+| `CORS_ORIGIN` | Comma-separated allowed origins, e.g. `http://localhost:5173,https://financial-analytics-dashboard-chi-gold.vercel.app` |
 | `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | The login account `npm run seed` creates |
 
 Running `npm run seed` again is safe — it skips the user if it already exists, but it does
@@ -80,6 +93,16 @@ filters, a date/amount range popover, sortable columns, and pagination.
 Hit "Export CSV" to pick which columns you want and whether to export the current filtered
 view or everything, then download — the file is generated on the backend and streamed down
 with a proper `Content-Disposition` header, so it just downloads like any normal file.
+
+### User flow
+
+```mermaid
+flowchart TD
+    A[Log in] --> B[Dashboard: charts + summary metrics]
+    B --> C[Search, filter, sort transactions]
+    C --> D[Configure CSV export]
+    D --> E[File downloads automatically]
+```
 
 ## API
 
@@ -139,7 +162,5 @@ across several fields — indexes can't help much there. Doesn't matter at 300 r
 
 ## A few things worth knowing
 
-- The Figma link in the assignment PDF wasn't reachable from here, so I worked from the
-  screenshot of it instead.
 - Only 4 users and 2 categories/statuses exist in the sample data, but nothing in the code
   assumes that — more of either would work without changes.
