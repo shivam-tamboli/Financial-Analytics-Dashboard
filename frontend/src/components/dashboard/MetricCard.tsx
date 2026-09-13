@@ -1,5 +1,6 @@
-import { Box, Flex, Icon, Skeleton, Text } from '@chakra-ui/react';
+import { Box, Flex, HStack, Icon, Skeleton, Text, Tooltip } from '@chakra-ui/react';
 import type { IconType } from 'react-icons';
+import { FiInfo } from 'react-icons/fi';
 import { formatCurrency } from '../../utils/format';
 
 interface MetricCardProps {
@@ -8,9 +9,10 @@ interface MetricCardProps {
   icon: IconType;
   accent: string;
   isLoading?: boolean;
+  tooltip?: string;
 }
 
-export function MetricCard({ label, value, icon, accent, isLoading }: MetricCardProps) {
+export function MetricCard({ label, value, icon, accent, isLoading, tooltip }: MetricCardProps) {
   return (
     <Flex
       bg="surface.panel"
@@ -27,9 +29,18 @@ export function MetricCard({ label, value, icon, accent, isLoading }: MetricCard
         <Icon as={icon} boxSize={5} color={accent} />
       </Flex>
       <Box minW={0}>
-        <Text fontSize="sm" color="surface.muted" mb={1}>
-          {label}
-        </Text>
+        <HStack spacing={1} mb={1}>
+          <Text fontSize="sm" color="surface.muted">
+            {label}
+          </Text>
+          {tooltip && (
+            <Tooltip label={tooltip} fontSize="xs" placement="top" hasArrow bg="surface.panelAlt" color="text.primary">
+              <Box as="span" display="inline-flex" cursor="help">
+                <Icon as={FiInfo} boxSize={3} color="surface.muted" />
+              </Box>
+            </Tooltip>
+          )}
+        </HStack>
         {isLoading ? (
           <Skeleton height="24px" width="100px" startColor="surface.panelAlt" endColor="surface.border" />
         ) : (

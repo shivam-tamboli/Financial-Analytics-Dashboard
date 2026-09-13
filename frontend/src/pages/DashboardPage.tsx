@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
-import { FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { FiCreditCard, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
 import { AppShell } from '../components/layout/AppShell';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { OverviewChart } from '../components/dashboard/OverviewChart';
@@ -12,6 +12,8 @@ import { useSummaryQuery, useTransactionUsersQuery } from '../hooks/useTransacti
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { extractErrorMessage } from '../api/client';
 import type { RecentTransactionsFilter, TransactionFilters } from '../types';
+
+const PAID_ONLY_TOOLTIP = 'Only Paid transactions are counted. Pending transactions are excluded from all totals.';
 
 export function DashboardPage() {
   const [filters, setFilters] = useState<TransactionFilters>({});
@@ -38,6 +40,7 @@ export function DashboardPage() {
             icon={FiDollarSign}
             accent="#22c55e"
             isLoading={summaryQuery.isLoading}
+            tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
             label="Revenue"
@@ -45,6 +48,7 @@ export function DashboardPage() {
             icon={FiTrendingUp}
             accent="#22c55e"
             isLoading={summaryQuery.isLoading}
+            tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
             label="Expenses"
@@ -52,30 +56,21 @@ export function DashboardPage() {
             icon={FiCreditCard}
             accent="#f5a623"
             isLoading={summaryQuery.isLoading}
-          />
-          <MetricCard
-            label="Savings"
-            value={summaryQuery.data?.summary.savings ?? 0}
-            icon={FiPieChart}
-            accent="#38bdf8"
-            isLoading={summaryQuery.isLoading}
+            tooltip={PAID_ONLY_TOOLTIP}
           />
         </HStack>
 
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
           <GridItem>
-            <OverviewChart
-              data={summaryQuery.data?.monthlyTrend ?? []}
-              yearly={summaryQuery.data?.yearly ?? {}}
-              isLoading={summaryQuery.isLoading}
-            />
+            <OverviewChart yearly={summaryQuery.data?.yearly ?? {}} isLoading={summaryQuery.isLoading} />
           </GridItem>
           <GridItem>
             <Stack spacing={6} h="full">
               <CategoryBreakdownChart data={summaryQuery.data?.categoryBreakdown ?? []} isLoading={summaryQuery.isLoading} />
               <Box flex={1}>
                 <RecentTransactions
-                  transactions={summaryQuery.data?.recentTransactions ?? []}
+                  transactions={summaryQuery.data?.recentTransactions.data ?? []}
+                  total={summaryQuery.data?.recentTransactions.total ?? 0}
                   isLoading={summaryQuery.isLoading}
                   filter={recentFilter}
                   onFilterChange={setRecentFilter}

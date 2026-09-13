@@ -36,12 +36,6 @@ export interface CategoryBreakdown {
   count: number;
 }
 
-export interface MonthlyTrendPoint {
-  month: string;
-  income: number;
-  expense: number;
-}
-
 export interface MonthBreakdown {
   revenue: number;
   expenses: number;
@@ -50,7 +44,14 @@ export interface MonthBreakdown {
 export interface YearBreakdown {
   revenue: number;
   expenses: number;
+  /** Keyed "YYYY-MM", always all 12 months of that year. */
   monthly: Record<string, MonthBreakdown>;
+}
+
+export interface RecentTransactionsPage {
+  data: Transaction[];
+  total: number;
+  limit: number;
 }
 
 export interface SummaryResponse {
@@ -58,12 +59,11 @@ export interface SummaryResponse {
     balance: number;
     revenue: number;
     expenses: number;
-    savings: number;
   };
   categoryBreakdown: CategoryBreakdown[];
-  monthlyTrend: MonthlyTrendPoint[];
+  /** Keyed by year, e.g. "2024". Monthly trend data lives at yearly[year].monthly. */
   yearly: Record<string, YearBreakdown>;
-  recentTransactions: Transaction[];
+  recentTransactions: RecentTransactionsPage;
 }
 
 export type SortableField = 'date' | 'amount' | 'category' | 'status' | 'user_name';

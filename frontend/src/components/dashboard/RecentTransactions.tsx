@@ -5,6 +5,7 @@ import { EmptyState } from '../common/EmptyState';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
+  total: number;
   isLoading: boolean;
   filter: RecentTransactionsFilter;
   onFilterChange: (filter: RecentTransactionsFilter) => void;
@@ -37,13 +38,20 @@ function filterToView(filter: RecentTransactionsFilter): ViewOption {
   return 'recent';
 }
 
-export function RecentTransactions({ transactions, isLoading, filter, onFilterChange }: RecentTransactionsProps) {
+export function RecentTransactions({ transactions, total, isLoading, filter, onFilterChange }: RecentTransactionsProps) {
   return (
     <Box bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5} h="full">
       <Flex justify="space-between" align="center" mb={4} gap={2}>
-        <Text fontWeight={700} fontSize="lg">
-          Recent Transactions
-        </Text>
+        <HStack spacing={2}>
+          <Text fontWeight={700} fontSize="lg">
+            Recent Transactions
+          </Text>
+          {!isLoading && total > 0 && (
+            <Text fontSize="xs" color="surface.muted">
+              of {total}
+            </Text>
+          )}
+        </HStack>
         <Select
           size="sm"
           w="auto"

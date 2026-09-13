@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import {
+  compareSummaryPeriods,
   exportTransactionsCsv,
+  getTransactionById,
+  getTransactionStats,
   getTransactionSummary,
   listTransactionUsers,
   listTransactions,
@@ -41,6 +44,7 @@ router.use(requireAuth);
  *       - in: query
  *         name: status
  *         schema: { type: string, enum: [Paid, Pending] }
+ *         description: Accepts 'Paid'/'Pending' in any case, plus 'completed' as a synonym for 'Paid' — all normalized before hitting the DB.
  *       - in: query
  *         name: userId
  *         schema: { type: string, example: user_002 }
@@ -50,6 +54,14 @@ router.use(requireAuth);
  *       - in: query
  *         name: dateTo
  *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: year
+ *         schema: { type: integer, example: 2024 }
+ *         description: Scopes to that calendar year. Takes precedence over dateFrom/dateTo if both are given.
+ *       - in: query
+ *         name: month
+ *         schema: { type: integer, minimum: 1, maximum: 12 }
+ *         description: Narrows `year` to a single month. Ignored without `year`.
  *       - in: query
  *         name: amountMin
  *         schema: { type: number }
@@ -88,12 +100,13 @@ router.get('/', listTransactions);
  * @openapi
  * /api/transactions/summary:
  *   get:
- *     summary: Dashboard summary — totals, category breakdown, monthly/yearly trend, recent transactions
+ *     summary: Dashboard summary — totals, category breakdown, yearly/monthly rollup, recent transactions
  *     description: >
- *       Accepts the same filters as the list endpoint (no pagination/sort). Revenue, expenses,
- *       balance and savings only ever count Paid transactions, regardless of any status filter
- *       passed — Pending transactions never affect a financial total, only the recent-transactions
- *       list, which additionally accepts filterBy/user/month/year.
+ *       Accepts the same filters as the list endpoint (no pagination/sort), including
+ *       year/month, which scope revenue/expenses/balance/categoryBreakdown/yearly the
+ *       same way dateFrom/dateTo do. Revenue/expenses/balance only ever count Paid
+ *       transactions, regardless of any status filter passed. The categoryBreakdown +
+ *       yearly rollup are cached in memory briefly; recentTransactions is always live.
  *     tags: [Transactions]
  *     parameters:
  *       - in: query
@@ -101,7 +114,7 @@ router.get('/', listTransactions);
  *         schema: { type: string, enum: [Revenue, Expense] }
  *       - in: query
  *         name: status
- *         schema: { type: string, enum: [Paid, Pending, completed, pending] }
+ *         schema: { type: string, enum: [Paid, Pending] }
  *       - in: query
  *         name: userId
  *         schema: { type: string }
@@ -112,6 +125,12 @@ router.get('/', listTransactions);
  *         name: dateTo
  *         schema: { type: string, format: date }
  *       - in: query
+ *         name: year
+ *         schema: { type: integer, example: 2024 }
+ *       - in: query
+ *         name: month
+ *         schema: { type: integer, minimum: 1, maximum: 12 }
+ *       - in: query
  *         name: amountMin
  *         schema: { type: number }
  *       - in: query
@@ -120,19 +139,15 @@ router.get('/', listTransactions);
  *       - in: query
  *         name: filterBy
  *         schema: { type: string, enum: [date, status, user, month, year] }
- *         description: Which dimension to narrow the recentTransactions list by. Optional — status/user/month/year below work whether or not this is set, and can be combined.
+ *         description: Advisory only — status/user/year/month above apply whether or not this is set.
  *       - in: query
  *         name: user
  *         schema: { type: string }
  *         description: Matches user_id exactly or user_name as a substring, for recentTransactions only.
  *       - in: query
- *         name: month
- *         schema: { type: integer, minimum: 1, maximum: 12 }
- *         description: For recentTransactions only.
- *       - in: query
- *         name: year
- *         schema: { type: integer, example: 2024 }
- *         description: For recentTransactions only.
+ *         name: limit
+ *         schema: { type: integer, default: 5, maximum: 50 }
+ *         description: How many recentTransactions to return.
  *     responses:
  *       200:
  *         description: Summary data
@@ -147,7 +162,6 @@ router.get('/', listTransactions);
  *                     balance: { type: number }
  *                     revenue: { type: number }
  *                     expenses: { type: number }
- *                     savings: { type: number }
  *                 categoryBreakdown:
  *                   type: array
  *                   items:
@@ -156,24 +170,54 @@ router.get('/', listTransactions);
  *                       category: { type: string }
  *                       total: { type: number }
  *                       count: { type: integer }
- *                 monthlyTrend:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       month: { type: string, example: '2024-01' }
- *                       income: { type: number }
- *                       expense: { type: number }
  *                 yearly:
  *                   type: object
- *                   description: Keyed by year, e.g. "2024". Only years with data are included; every year always has all 12 months.
+ *                   description: Keyed by year, e.g. "2024". Only years with data are included. Each year's `monthly` is keyed "YYYY-MM" and always has all 12 months.
  *                 recentTransactions:
- *                   type: array
- *                   items: { $ref: '#/components/schemas/Transaction' }
+ *                   type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items: { $ref: '#/components/schemas/Transaction' }
+ *                     total: { type: integer }
+ *                     limit: { type: integer }
  *       401:
  *         description: Missing or invalid token
  */
 router.get('/summary', getTransactionSummary);
+
+/**
+ * @openapi
+ * /api/transactions/summary/compare:
+ *   get:
+ *     summary: Compare Paid revenue/expenses/balance between two months
+ *     tags: [Transactions]
+ *     parameters:
+ *       - in: query
+ *         name: periodA
+ *         required: true
+ *         schema: { type: string, example: '2024-01' }
+ *       - in: query
+ *         name: periodB
+ *         required: true
+ *         schema: { type: string, example: '2024-02' }
+ *     responses:
+ *       200:
+ *         description: Comparison
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 periodA: { type: object }
+ *                 periodB: { type: object }
+ *                 difference: { type: object }
+ *       400:
+ *         description: periodA/periodB not in YYYY-MM format
+ *       401:
+ *         description: Missing or invalid token
+ */
+router.get('/summary/compare', compareSummaryPeriods);
 
 /**
  * @openapi
@@ -201,6 +245,38 @@ router.get('/summary', getTransactionSummary);
  *         description: Missing or invalid token
  */
 router.get('/users', listTransactionUsers);
+
+/**
+ * @openapi
+ * /api/transactions/stats:
+ *   get:
+ *     summary: Dataset-wide stats — total count, total volume, breakdown by status, breakdown by category
+ *     description: Not Paid-only — this describes the shape of the whole dataset, including Pending rows.
+ *     tags: [Transactions]
+ *     responses:
+ *       200:
+ *         description: Stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalCount: { type: integer }
+ *                 totalVolume: { type: number }
+ *                 byStatus:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties: { status: { type: string }, count: { type: integer }, total: { type: number } }
+ *                 byCategory:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties: { category: { type: string }, count: { type: integer }, total: { type: number } }
+ *       401:
+ *         description: Missing or invalid token
+ */
+router.get('/stats', getTransactionStats);
 
 /**
  * @openapi
@@ -237,5 +313,37 @@ router.get('/users', listTransactionUsers);
  *         description: Missing or invalid token
  */
 router.post('/export', exportTransactionsCsv);
+
+/**
+ * @openapi
+ * /api/transactions/{id}:
+ *   get:
+ *     summary: Get a single transaction by its Mongo id
+ *     tags: [Transactions]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, example: 66d1f0c9a1b2c3d4e5f60789 }
+ *     responses:
+ *       200:
+ *         description: The transaction
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data: { $ref: '#/components/schemas/Transaction' }
+ *       400:
+ *         description: id is not a valid Mongo ObjectId
+ *       404:
+ *         description: No transaction with that id
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       401:
+ *         description: Missing or invalid token
+ */
+router.get('/:id', getTransactionById);
 
 export default router;

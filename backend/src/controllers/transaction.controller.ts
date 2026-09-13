@@ -1,37 +1,25 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { FilterQuery } from 'mongoose';
+import mongoose, { FilterQuery } from 'mongoose';
 import { Transaction, TransactionDocument } from '../models/Transaction';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import {
   buildTransactionFilter,
+  computePaidTotals,
   EXPORTABLE_COLUMNS,
   ExportableColumn,
   PAID_STATUS,
+  round2,
   toTransactionDTO,
   transactionFilterSchema,
   transactionQuerySchema,
 } from '../services/transaction.service';
 import { streamTransactionsAsCsv } from '../services/csv.service';
-
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/**
- * The API historically only accepted the exact enum casing ('Paid' | 'Pending').
- * The recent-transactions filter spec uses 'completed' as a synonym for 'Paid' —
- * normalize both alias and casing here, before zod's strict enum check, so both
- * conventions work instead of one of them 400ing.
- */
-function normalizeStatusQueryParam(query: Request['query']): Request['query'] {
-  if (typeof query.status !== 'string') return query;
-  const lower = query.status.toLowerCase();
-  const normalized = lower === 'completed' ? 'Paid' : lower === 'pending' ? 'Pending' : lower === 'paid' ? 'Paid' : query.status;
-  return { ...query, status: normalized };
-}
+import { getCached, setCached } from '../services/cache.service';
 
 export const listTransactions = asyncHandler(async (req: Request, res: Response) => {
-  const query = transactionQuerySchema.parse(normalizeStatusQueryParam(req.query));
+  const query = transactionQuerySchema.parse(req.query);
   const filter = buildTransactionFilter(query);
   const sortDirection = query.sortOrder === 'asc' ? 1 : -1;
   const skip = (query.page - 1) * query.limit;
@@ -56,11 +44,22 @@ export const listTransactions = asyncHandler(async (req: Request, res: Response)
   });
 });
 
+export const getTransactionById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    throw new ApiError(400, 'Invalid transaction id');
+  }
+  const doc = await Transaction.findById(id).lean();
+  if (!doc) {
+    throw new ApiError(404, 'Transaction not found');
+  }
+  res.json({ data: toTransactionDTO(doc) });
+});
+
 const recentTransactionsQuerySchema = z.object({
   filterBy: z.enum(['date', 'status', 'user', 'month', 'year']).optional(),
   user: z.string().trim().optional(),
-  month: z.coerce.number().int().min(1).max(12).optional(),
-  year: z.coerce.number().int().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(5),
 });
 
 function buildRecentTransactionsFilter(
@@ -74,20 +73,13 @@ function buildRecentTransactionsFilter(
     filter.$or = [{ user_id: input.user }, { user_name: new RegExp(escaped, 'i') }];
   }
 
-  const dateExprs: Record<string, unknown>[] = [];
-  if (input.month) dateExprs.push({ $eq: [{ $month: '$date' }, input.month] });
-  if (input.year) dateExprs.push({ $eq: [{ $year: '$date' }, input.year] });
-  if (dateExprs.length === 1) {
-    filter.$expr = dateExprs[0];
-  } else if (dateExprs.length > 1) {
-    filter.$expr = { $and: dateExprs };
-  }
-
   return filter;
 }
 
+const MONTH_KEYS_2_DIGIT = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+
 export const getTransactionSummary = asyncHandler(async (req: Request, res: Response) => {
-  const filterInput = transactionFilterSchema.parse(normalizeStatusQueryParam(req.query));
+  const filterInput = transactionFilterSchema.parse(req.query);
   const filter = buildTransactionFilter(filterInput);
   const recentInput = recentTransactionsQuerySchema.parse(req.query);
 
@@ -105,95 +97,99 @@ export const getTransactionSummary = asyncHandler(async (req: Request, res: Resp
   }
   const recentFilter = buildRecentTransactionsFilter(filter, recentInput);
 
-  const [totalsByCategory, monthlyTrendRaw, recentTransactions] = await Promise.all([
-    Transaction.aggregate([
-      { $match: paidFilter },
-      { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-    ]),
-    Transaction.aggregate([
-      { $match: paidFilter },
-      {
-        $group: {
-          _id: { year: { $year: '$date' }, month: { $month: '$date' }, category: '$category' },
-          total: { $sum: '$amount' },
+  // year/month/category/date/amount/userId/status all narrow this cache key, so two
+  // different filtered views never collide — but recentTransactions is intentionally
+  // excluded from both the key and the cached payload; it's read fresh every time.
+  const cacheKey = `summary:${JSON.stringify(filterInput)}`;
+  let cached = getCached<{
+    revenue: number;
+    expenses: number;
+    categoryBreakdown: { category: string; total: number; count: number }[];
+    yearly: Record<string, { revenue: number; expenses: number; monthly: Record<string, { revenue: number; expenses: number }> }>;
+  }>(cacheKey);
+
+  if (!cached) {
+    const [totalsByCategory, monthlyRaw] = await Promise.all([
+      Transaction.aggregate([
+        { $match: paidFilter },
+        { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      ]),
+      Transaction.aggregate([
+        { $match: paidFilter },
+        {
+          $group: {
+            _id: { year: { $year: '$date' }, month: { $month: '$date' }, category: '$category' },
+            total: { $sum: '$amount' },
+          },
         },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-    Transaction.find(recentFilter)
-      .sort({ date: -1 })
-      .limit(5)
-      .lean(),
-  ]);
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]),
+    ]);
 
-  const revenue = totalsByCategory.find((t) => t._id === 'Revenue')?.total ?? 0;
-  const expenses = totalsByCategory.find((t) => t._id === 'Expense')?.total ?? 0;
+    const revenue = totalsByCategory.find((t) => t._id === 'Revenue')?.total ?? 0;
+    const expenses = totalsByCategory.find((t) => t._id === 'Expense')?.total ?? 0;
 
-  const monthKeys: string[] = [];
-  const trendMap = new Map<string, { income: number; expense: number }>();
-  const yearly: Record<string, { revenue: number; expenses: number; monthly: Record<string, { revenue: number; expenses: number }> }> = {};
-
-  for (const row of monthlyTrendRaw) {
-    const key = `${row._id.year}-${String(row._id.month).padStart(2, '0')}`;
-    if (!trendMap.has(key)) {
-      trendMap.set(key, { income: 0, expense: 0 });
-      monthKeys.push(key);
+    const yearly: Record<string, { revenue: number; expenses: number; monthly: Record<string, { revenue: number; expenses: number }> }> = {};
+    for (const row of monthlyRaw) {
+      const yearKey = String(row._id.year);
+      if (!yearly[yearKey]) {
+        yearly[yearKey] = {
+          revenue: 0,
+          expenses: 0,
+          monthly: Object.fromEntries(MONTH_KEYS_2_DIGIT.map((m) => [`${yearKey}-${m}`, { revenue: 0, expenses: 0 }])),
+        };
+      }
+      const monthKey = `${yearKey}-${String(row._id.month).padStart(2, '0')}`;
+      if (row._id.category === 'Revenue') {
+        yearly[yearKey].revenue += row.total;
+        yearly[yearKey].monthly[monthKey].revenue += row.total;
+      } else {
+        yearly[yearKey].expenses += row.total;
+        yearly[yearKey].monthly[monthKey].expenses += row.total;
+      }
     }
-    const bucket = trendMap.get(key)!;
-
-    const yearKey = String(row._id.year);
-    if (!yearly[yearKey]) {
-      yearly[yearKey] = {
-        revenue: 0,
-        expenses: 0,
-        monthly: Object.fromEntries(MONTH_NAMES.map((m) => [m, { revenue: 0, expenses: 0 }])),
-      };
+    for (const year of Object.keys(yearly)) {
+      yearly[year].revenue = round2(yearly[year].revenue);
+      yearly[year].expenses = round2(yearly[year].expenses);
+      for (const monthKey of Object.keys(yearly[year].monthly)) {
+        yearly[year].monthly[monthKey].revenue = round2(yearly[year].monthly[monthKey].revenue);
+        yearly[year].monthly[monthKey].expenses = round2(yearly[year].monthly[monthKey].expenses);
+      }
     }
-    const monthName = MONTH_NAMES[row._id.month - 1];
 
-    if (row._id.category === 'Revenue') {
-      bucket.income += row.total;
-      yearly[yearKey].revenue += row.total;
-      yearly[yearKey].monthly[monthName].revenue += row.total;
-    } else {
-      bucket.expense += row.total;
-      yearly[yearKey].expenses += row.total;
-      yearly[yearKey].monthly[monthName].expenses += row.total;
-    }
+    cached = {
+      revenue: round2(revenue),
+      expenses: round2(expenses),
+      categoryBreakdown: totalsByCategory.map((t) => ({
+        category: t._id as string,
+        total: round2(t.total),
+        count: t.count as number,
+      })),
+      yearly,
+    };
+    setCached(cacheKey, cached);
   }
 
-  const monthlyTrend = monthKeys.sort().map((key) => ({
-    month: key,
-    income: Math.round(trendMap.get(key)!.income * 100) / 100,
-    expense: Math.round(trendMap.get(key)!.expense * 100) / 100,
-  }));
-
-  for (const year of Object.keys(yearly)) {
-    yearly[year].revenue = Math.round(yearly[year].revenue * 100) / 100;
-    yearly[year].expenses = Math.round(yearly[year].expenses * 100) / 100;
-    for (const month of MONTH_NAMES) {
-      yearly[year].monthly[month].revenue = Math.round(yearly[year].monthly[month].revenue * 100) / 100;
-      yearly[year].monthly[month].expenses = Math.round(yearly[year].monthly[month].expenses * 100) / 100;
-    }
-  }
+  const recentTransactions = await Transaction.find(recentFilter).sort({ date: -1 }).limit(recentInput.limit).lean();
+  const recentTotal = await Transaction.countDocuments(recentFilter);
 
   res.json({
-    // Revenue/expenses/balance/savings are all Paid-only now (see paidFilter above),
-    // so balance and savings work out to the same number — that's expected, not a bug.
+    // Revenue/expenses/balance are all Paid-only (see paidFilter above). There's no
+    // separate "savings" field — it was always identical to balance once Pending
+    // transactions stopped counting, so it didn't carry any information balance
+    // didn't already have.
     summary: {
-      balance: Math.round((revenue - expenses) * 100) / 100,
-      revenue: Math.round(revenue * 100) / 100,
-      expenses: Math.round(expenses * 100) / 100,
-      savings: Math.round((revenue - expenses) * 100) / 100,
+      balance: round2(cached.revenue - cached.expenses),
+      revenue: cached.revenue,
+      expenses: cached.expenses,
     },
-    categoryBreakdown: totalsByCategory.map((t) => ({
-      category: t._id as string,
-      total: Math.round(t.total * 100) / 100,
-      count: t.count as number,
-    })),
-    monthlyTrend,
-    yearly,
-    recentTransactions: recentTransactions.map(toTransactionDTO),
+    categoryBreakdown: cached.categoryBreakdown,
+    yearly: cached.yearly,
+    recentTransactions: {
+      data: recentTransactions.map(toTransactionDTO),
+      total: recentTotal,
+      limit: recentInput.limit,
+    },
   });
 });
 
@@ -205,6 +201,55 @@ export const listTransactionUsers = asyncHandler(async (_req: Request, res: Resp
 
   res.json({
     users: users.map((u) => ({ user_id: u._id as string, user_name: u.user_name, user_profile: u.user_profile })),
+  });
+});
+
+export const getTransactionStats = asyncHandler(async (_req: Request, res: Response) => {
+  // Deliberately not Paid-only: this is about the shape of the dataset itself
+  // (how many transactions, how much money has moved through it, how it splits
+  // by status/category), not the "what's actually settled" business totals that
+  // /summary and /analytics/kpis report. Pending transactions are real rows and
+  // belong in a count/volume breakdown.
+  const [totalCount, volumeAgg, byStatus, byCategory] = await Promise.all([
+    Transaction.countDocuments({}),
+    Transaction.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
+    Transaction.aggregate([{ $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
+    Transaction.aggregate([{ $group: { _id: '$category', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
+  ]);
+
+  res.json({
+    totalCount,
+    totalVolume: round2(volumeAgg[0]?.total ?? 0),
+    byStatus: byStatus.map((s) => ({ status: s._id as string, count: s.count as number, total: round2(s.total) })),
+    byCategory: byCategory.map((c) => ({ category: c._id as string, count: c.count as number, total: round2(c.total) })),
+  });
+});
+
+const compareQuerySchema = z.object({
+  periodA: z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM'),
+  periodB: z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM'),
+});
+
+function periodFilter(period: string): FilterQuery<TransactionDocument> {
+  const [year, month] = period.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1));
+  return { date: { $gte: start, $lt: end } };
+}
+
+export const compareSummaryPeriods = asyncHandler(async (req: Request, res: Response) => {
+  const { periodA, periodB } = compareQuerySchema.parse(req.query);
+
+  const [a, b] = await Promise.all([computePaidTotals(periodFilter(periodA)), computePaidTotals(periodFilter(periodB))]);
+
+  res.json({
+    periodA: { period: periodA, ...a },
+    periodB: { period: periodB, ...b },
+    difference: {
+      revenue: round2(b.revenue - a.revenue),
+      expenses: round2(b.expenses - a.expenses),
+      balance: round2(b.balance - a.balance),
+    },
   });
 });
 

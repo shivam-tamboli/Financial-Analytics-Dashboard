@@ -7,6 +7,8 @@ import { env } from './config/env';
 import { swaggerSpec } from './config/swagger';
 import authRoutes from './routes/auth.routes';
 import transactionRoutes from './routes/transaction.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import usersRoutes from './routes/users.routes';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { ApiError } from './utils/ApiError';
 
@@ -47,6 +49,8 @@ export function createApp(): Application {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/transactions', transactionRoutes);
+  app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/users', usersRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -11,12 +11,11 @@ import {
 } from 'recharts';
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import type { MonthlyTrendPoint, YearBreakdown } from '../../types';
+import type { YearBreakdown } from '../../types';
 import { formatCompactCurrency, formatCurrency, formatMonthLabel } from '../../utils/format';
 import { EmptyState } from '../common/EmptyState';
 
 interface OverviewChartProps {
-  data: MonthlyTrendPoint[];
   yearly: Record<string, YearBreakdown>;
   isLoading: boolean;
 }
@@ -25,8 +24,8 @@ type ChartView = 'monthly' | 'yearly';
 
 interface ChartPoint {
   label: string;
-  income: number;
-  expense: number;
+  revenue: number;
+  expenses: number;
 }
 
 function ChartTooltip({
@@ -50,20 +49,24 @@ function ChartTooltip({
   );
 }
 
-export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
+export function OverviewChart({ yearly, isLoading }: OverviewChartProps) {
   const [view, setView] = useState<ChartView>('monthly');
   const gridStroke = useColorModeValue('#e2e8f0', '#232a32');
   const axisStroke = useColorModeValue('#4a5568', '#8b95a1');
   const axisLabelFill = useColorModeValue('#2d3748', '#c3cbd4');
 
+  const years = useMemo(() => Object.keys(yearly).sort(), [yearly]);
+  const latestYear = years.at(-1);
+
   const chartData: ChartPoint[] = useMemo(() => {
     if (view === 'yearly') {
-      return Object.entries(yearly)
-        .map(([year, breakdown]) => ({ label: year, income: breakdown.revenue, expense: breakdown.expenses }))
-        .sort((a, b) => a.label.localeCompare(b.label));
+      return years.map((year) => ({ label: year, revenue: yearly[year].revenue, expenses: yearly[year].expenses }));
     }
-    return data.map((point) => ({ label: point.month, income: point.income, expense: point.expense }));
-  }, [view, data, yearly]);
+    if (!latestYear) return [];
+    return Object.entries(yearly[latestYear].monthly)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([monthKey, breakdown]) => ({ label: monthKey, revenue: breakdown.revenue, expenses: breakdown.expenses }));
+  }, [view, years, latestYear, yearly]);
 
   const xAxisLabel = view === 'monthly' ? 'Month' : 'Year';
   const tickFormatter = view === 'monthly' ? formatMonthLabel : (v: string) => v;
@@ -86,7 +89,7 @@ export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
           <HStack spacing={4} fontSize="xs" color="surface.muted">
             <HStack spacing={1.5}>
               <Box boxSize={2} borderRadius="full" bg="brand.500" />
-              <Text>Income</Text>
+              <Text>Revenue</Text>
             </HStack>
             <HStack spacing={1.5}>
               <Box boxSize={2} borderRadius="full" bg="accent.500" />
@@ -113,7 +116,7 @@ export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
       {isLoading ? (
         <Skeleton height="280px" startColor="surface.panelAlt" endColor="surface.border" borderRadius="lg" />
       ) : chartData.length === 0 ? (
-        <EmptyState title="No trend data" description="Try widening your filters to see income vs. expense trends." />
+        <EmptyState title="No trend data" description="Try widening your filters to see revenue vs. expenses trends." />
       ) : (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData} margin={{ top: 8, right: 8, left: 4, bottom: 18 }}>
@@ -138,8 +141,8 @@ export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
             <Tooltip content={(props) => <ChartTooltip {...props} view={view} />} />
             <Line
               type="monotone"
-              dataKey="income"
-              name="Income"
+              dataKey="revenue"
+              name="Revenue"
               stroke="#22c55e"
               strokeWidth={2.5}
               dot={false}
@@ -147,7 +150,7 @@ export function OverviewChart({ data, yearly, isLoading }: OverviewChartProps) {
             />
             <Line
               type="monotone"
-              dataKey="expense"
+              dataKey="expenses"
               name="Expenses"
               stroke="#f5a623"
               strokeWidth={2.5}

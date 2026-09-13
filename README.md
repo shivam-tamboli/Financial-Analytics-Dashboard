@@ -101,19 +101,36 @@ params, and try-it-out requests are at **`/api/docs`** (Swagger UI) once the bac
 
 - `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
 - `GET /api/transactions` — paginated, filtered, sorted, searchable
-- `GET /api/transactions/summary` — totals, category breakdown, monthly/yearly trend, recent transactions
+- `GET /api/transactions/:id` — a single transaction by its Mongo id
+- `GET /api/transactions/summary` — totals, category breakdown, yearly/monthly rollup, recent transactions
+- `GET /api/transactions/summary/compare?periodA=YYYY-MM&periodB=YYYY-MM` — compare two months
+- `GET /api/transactions/stats` — dataset-wide counts and volume, not Paid-only (includes Pending)
 - `GET /api/transactions/users` — for filter dropdowns
 - `POST /api/transactions/export` — CSV, configurable columns
+- `GET /api/analytics/kpis` — revenue, expenses, balance, transaction count, average value, top category
+- `GET /api/analytics/cashflow` — Paid revenue minus expenses per month, for the current calendar year
+- `GET /api/users/:id/summary` — one user's revenue/expenses/balance/transaction count (`:id` is a `user_id` like `user_001`, not a login account)
 
-One rule worth knowing since it's not obvious from the endpoint alone: revenue, expenses,
-balance, and savings on `/summary` only ever count **Paid** transactions. Pending ones still
-show up in the transaction table and the recent-transactions list, they just don't move any
-of the totals.
+Vocabulary is consistent everywhere: **revenue** and **expenses**, never "income" or a singular
+"expense". Status is always exactly `Paid` or `Pending` in output — `completed` and other
+casings are accepted as input and normalized before they ever reach the database or a filter.
+
+One rule worth knowing since it's not obvious from the endpoint alone: revenue, expenses, and
+balance on `/summary`, `/analytics/kpis`, `/analytics/cashflow`, and `/users/:id/summary` only
+ever count **Paid** transactions. Pending ones still show up in the transaction table and the
+recent-transactions list (`recentTransactions.data`, with `total`/`limit` alongside it), they
+just don't move any of the totals. There's no separate "savings" field — it was always
+identical to balance once Pending stopped counting, so it didn't carry any information balance
+didn't already have.
+
+Monthly figures live at `yearly[year].monthly`, keyed `"YYYY-MM"` — there's no separate
+`monthlyTrend` array anymore, one place for that data is enough.
 
 ## Features
 
 - JWT login/logout, protected API routes
-- Dashboard: balance/revenue/expenses/savings cards, income-vs-expense chart, category
+- Dashboard: balance/revenue/expenses cards (each with an info tooltip explaining the
+  Paid-only rule), revenue-vs-expenses chart with a Monthly/Yearly toggle, category
   breakdown, recent transactions (filterable by status, user, month, or year)
 - Transaction table: search, filters (calendar date range, amount, category, status, user),
   sortable columns, pagination
