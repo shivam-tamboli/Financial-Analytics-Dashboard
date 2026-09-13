@@ -38,6 +38,7 @@ interface TransactionsTableProps {
   sortBy: SortableField;
   sortOrder: SortOrder;
   onSortChange: (field: SortableField) => void;
+  onRowClick?: (transaction: Transaction) => void;
 }
 
 export function TransactionsTable({
@@ -46,6 +47,7 @@ export function TransactionsTable({
   sortBy,
   sortOrder,
   onSortChange,
+  onRowClick,
 }: TransactionsTableProps) {
   return (
     <Box overflowX="auto">
@@ -88,7 +90,12 @@ export function TransactionsTable({
             transactions.map((t) => {
               const isRevenue = t.category === 'Revenue';
               return (
-                <Tr key={t.id} _hover={{ bg: 'surface.panelAlt' }}>
+                <Tr
+                  key={t.id}
+                  _hover={{ bg: 'surface.panelAlt' }}
+                  cursor={onRowClick ? 'pointer' : undefined}
+                  onClick={() => onRowClick?.(t)}
+                >
                   <Td>
                     <HStack spacing={3}>
                       <Avatar size="sm" src={t.user_profile} name={t.user_name} />

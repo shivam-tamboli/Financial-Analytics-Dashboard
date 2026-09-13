@@ -122,3 +122,65 @@ export interface ApiErrorPayload {
     details?: { path: string; message: string }[];
   };
 }
+
+export type StatusFilter = TransactionStatus | 'all';
+
+export interface KpisResponse {
+  filter: StatusFilter;
+  year: number | null;
+  revenue: number;
+  expenses: number;
+  balance: number;
+  transactionCount: number;
+  averageTransactionValue: number;
+  topCategory: TransactionCategory;
+}
+
+export interface CashflowMonth {
+  month: string;
+  revenue: number;
+  expenses: number;
+  cashflow: number;
+}
+
+export interface CashflowResponse {
+  year: number | null;
+  filter: StatusFilter;
+  months: CashflowMonth[];
+}
+
+export interface ComparePeriodTotals {
+  period: string;
+  revenue: number;
+  expenses: number;
+  balance: number;
+}
+
+export interface CompareResponse {
+  filter: StatusFilter;
+  periodA: ComparePeriodTotals;
+  periodB: ComparePeriodTotals;
+  difference: { revenue: number; expenses: number; balance: number };
+}
+
+export interface StatsBreakdownEntry {
+  count: number;
+  total: number;
+}
+
+export interface StatsResponse {
+  filter: StatusFilter;
+  totalCount: number;
+  totalVolume: number;
+  byStatus: (StatsBreakdownEntry & { status: string })[];
+  byCategory: (StatsBreakdownEntry & { category: string })[];
+}
+
+export interface UserSummaryResponse {
+  user_id: string;
+  user_name: string;
+  revenue: number;
+  expenses: number;
+  balance: number;
+  transactionCount: number;
+}

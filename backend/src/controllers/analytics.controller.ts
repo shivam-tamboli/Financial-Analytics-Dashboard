@@ -4,12 +4,22 @@ import { Transaction } from '../models/Transaction';
 import { asyncHandler } from '../utils/asyncHandler';
 import { resolveStatusMatch, round2, statusFilterQuerySchema } from '../services/transaction.service';
 
+const kpisQuerySchema = statusFilterQuerySchema.extend({
+  year: z.coerce.number().int().optional(),
+});
+
 export const getKpis = asyncHandler(async (req: Request, res: Response) => {
-  const { status } = statusFilterQuerySchema.parse(req.query);
+  const { status, year } = kpisQuerySchema.parse(req.query);
   const matchStatus = resolveStatusMatch(status);
+  // All-time by default (unchanged from before year support existed) — pass
+  // ?year= to scope to one calendar year, the same date-range approach cashflow
+  // uses. With a single-year sample dataset the numbers come out identical
+  // either way; this matters once the dataset spans more than one year.
+  const matchYear =
+    year === undefined ? {} : { date: { $gte: new Date(Date.UTC(year, 0, 1)), $lt: new Date(Date.UTC(year + 1, 0, 1)) } };
 
   const rows = await Transaction.aggregate([
-    { $match: matchStatus },
+    { $match: { ...matchStatus, ...matchYear } },
     { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
   ]);
   const revenueRow = rows.find((r) => r._id === 'Revenue');
@@ -25,6 +35,7 @@ export const getKpis = asyncHandler(async (req: Request, res: Response) => {
   res.json({
     data: {
       filter: status,
+      year: year ?? null,
       revenue: round2(revenue),
       expenses: round2(expenses),
       balance: round2(revenue - expenses),

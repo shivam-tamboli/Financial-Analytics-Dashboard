@@ -10,9 +10,11 @@ interface MetricCardProps {
   accent: string;
   isLoading?: boolean;
   tooltip?: string;
+  /** Renders in place of the formatted currency value, e.g. for a category name. */
+  displayValue?: string;
 }
 
-export function MetricCard({ label, value, icon, accent, isLoading, tooltip }: MetricCardProps) {
+export function MetricCard({ label, value, icon, accent, isLoading, tooltip, displayValue }: MetricCardProps) {
   return (
     <Flex
       bg="surface.panel"
@@ -45,7 +47,7 @@ export function MetricCard({ label, value, icon, accent, isLoading, tooltip }: M
           <Skeleton height="24px" width="100px" startColor="surface.panelAlt" endColor="surface.border" />
         ) : (
           <Text fontSize="xl" fontWeight={700} noOfLines={1}>
-            {formatCurrency(value)}
+            {displayValue ?? formatCurrency(value)}
           </Text>
         )}
       </Box>

@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Box, Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
-import { FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { FiActivity, FiAward, FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
 import { AppShell } from '../components/layout/AppShell';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { OverviewChart } from '../components/dashboard/OverviewChart';
 import { CategoryBreakdownChart } from '../components/dashboard/CategoryBreakdownChart';
+import { CashflowChart } from '../components/dashboard/CashflowChart';
+import { ComparePanel } from '../components/dashboard/ComparePanel';
+import { StatsDistributionWidget } from '../components/dashboard/StatsDistributionWidget';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { TransactionsSection } from '../components/transactions/TransactionsSection';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery, useTransactionUsersQuery } from '../hooks/useTransactionsData';
+import { useKpisQuery, useCashflowQuery } from '../hooks/useAnalyticsData';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { extractErrorMessage } from '../api/client';
 import type { RecentTransactionsFilter, TransactionFilters } from '../types';
@@ -24,6 +28,17 @@ export function DashboardPage() {
   const summaryQuery = useSummaryQuery(debouncedFilters, recentFilter);
   const usersQuery = useTransactionUsersQuery();
 
+  // The sample dataset is all dated 2024; deriving "latest year" from data already
+  // in hand (rather than hardcoding 2024, or using the server's current year) keeps
+  // this correct if the dataset ever grows to span more years.
+  const latestYear = useMemo(() => {
+    const years = Object.keys(summaryQuery.data?.yearly ?? {}).sort();
+    return years.length > 0 ? Number(years.at(-1)) : undefined;
+  }, [summaryQuery.data?.yearly]);
+
+  const kpisQuery = useKpisQuery(latestYear);
+  const cashflowQuery = useCashflowQuery(latestYear);
+
   return (
     <AppShell
       searchValue={filters.search ?? ''}
@@ -33,39 +48,59 @@ export function DashboardPage() {
         {summaryQuery.isError && (
           <AlertChip status="error" message={extractErrorMessage(summaryQuery.error, 'Failed to load dashboard metrics')} />
         )}
+        {kpisQuery.isError && (
+          <AlertChip status="error" message={extractErrorMessage(kpisQuery.error, 'Failed to load KPI metrics')} />
+        )}
 
         <HStack spacing={4} wrap="wrap">
           <MetricCard
             label="Balance"
-            value={summaryQuery.data?.summary.balance ?? 0}
+            value={kpisQuery.data?.balance ?? 0}
             icon={FiDollarSign}
             accent="#22c55e"
-            isLoading={summaryQuery.isLoading}
+            isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
             label="Revenue"
-            value={summaryQuery.data?.summary.revenue ?? 0}
+            value={kpisQuery.data?.revenue ?? 0}
             icon={FiTrendingUp}
             accent="#22c55e"
-            isLoading={summaryQuery.isLoading}
+            isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
             label="Expenses"
-            value={summaryQuery.data?.summary.expenses ?? 0}
+            value={kpisQuery.data?.expenses ?? 0}
             icon={FiCreditCard}
             accent="#f5a623"
-            isLoading={summaryQuery.isLoading}
+            isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
             label="Savings"
-            value={summaryQuery.data?.summary.balance ?? 0}
+            value={kpisQuery.data?.balance ?? 0}
             icon={FiPieChart}
             accent="#38bdf8"
-            isLoading={summaryQuery.isLoading}
+            isLoading={kpisQuery.isLoading}
             tooltip={SAVINGS_TOOLTIP}
+          />
+          <MetricCard
+            label="Avg. Transaction Value"
+            value={kpisQuery.data?.averageTransactionValue ?? 0}
+            icon={FiActivity}
+            accent="#a78bfa"
+            isLoading={kpisQuery.isLoading}
+            tooltip={PAID_ONLY_TOOLTIP}
+          />
+          <MetricCard
+            label="Top Category"
+            value={0}
+            displayValue={kpisQuery.data?.topCategory ?? '—'}
+            icon={FiAward}
+            accent="#22c55e"
+            isLoading={kpisQuery.isLoading}
+            tooltip={`${PAID_ONLY_TOOLTIP} Whichever of Revenue/Expense has the larger total.`}
           />
         </HStack>
 
@@ -85,6 +120,18 @@ export function DashboardPage() {
                   onFilterChange={setRecentFilter}
                 />
               </Box>
+            </Stack>
+          </GridItem>
+        </Grid>
+
+        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
+          <GridItem>
+            <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
+          </GridItem>
+          <GridItem>
+            <Stack spacing={6} h="full">
+              <ComparePanel />
+              <StatsDistributionWidget />
             </Stack>
           </GridItem>
         </Grid>

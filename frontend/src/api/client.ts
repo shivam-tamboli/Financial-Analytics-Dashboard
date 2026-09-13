@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5050/api';
+// No hardcoded fallback, on purpose — same pattern as the backend's
+// MONGO_URI/JWT_SECRET: a forgotten env var should fail loudly at startup,
+// not silently point at whatever localhost happens to be running.
+if (!import.meta.env.VITE_API_BASE_URL) {
+  throw new Error('Missing required environment variable: VITE_API_BASE_URL');
+}
+
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

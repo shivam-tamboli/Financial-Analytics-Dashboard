@@ -5,6 +5,8 @@ import type { SortableField, SortOrder, TransactionFilters, TransactionUser } fr
 import { useTransactionsQuery } from '../../hooks/useTransactionsData';
 import { TransactionFiltersBar } from './TransactionFiltersBar';
 import { TransactionsTable } from './TransactionsTable';
+import { TransactionDetailDrawer } from './TransactionDetailDrawer';
+import { UserSummaryModal } from './UserSummaryModal';
 import { Pagination } from './Pagination';
 import { ExportModal } from '../export/ExportModal';
 import { AlertChip } from '../common/AlertChip';
@@ -22,6 +24,8 @@ export function TransactionsSection({ filters, onFiltersChange, users }: Transac
   const [sortBy, setSortBy] = useState<SortableField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [appliedFilters, setAppliedFilters] = useState(filters);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<TransactionUser | null>(null);
   const exportModal = useDisclosure();
 
   // Reset pagination back to page 1 whenever the filters change. Adjusting state
@@ -69,7 +73,12 @@ export function TransactionsSection({ filters, onFiltersChange, users }: Transac
       </Flex>
 
       <Box mb={5}>
-        <TransactionFiltersBar filters={filters} onChange={onFiltersChange} users={users} />
+        <TransactionFiltersBar
+          filters={filters}
+          onChange={onFiltersChange}
+          users={users}
+          onViewUserSummary={setSelectedUser}
+        />
       </Box>
 
       {query.isError && (
@@ -84,6 +93,7 @@ export function TransactionsSection({ filters, onFiltersChange, users }: Transac
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
+        onRowClick={(t) => setSelectedTransactionId(t.id)}
       />
 
       {query.data && query.data.pagination.total > 0 && (
@@ -98,6 +108,8 @@ export function TransactionsSection({ filters, onFiltersChange, users }: Transac
       )}
 
       <ExportModal isOpen={exportModal.isOpen} onClose={exportModal.onClose} activeFilters={filters} filteredTotal={total} />
+      <TransactionDetailDrawer transactionId={selectedTransactionId} onClose={() => setSelectedTransactionId(null)} />
+      <UserSummaryModal user={selectedUser} onClose={() => setSelectedUser(null)} />
     </Box>
   );
 }

@@ -22,6 +22,10 @@ router.use(requireAuth);
  *         name: status
  *         schema: { type: string, enum: [Paid, Pending, all], default: Paid }
  *         description: Accepts 'Paid'/'Pending' in any case, plus 'completed' as a synonym for 'Paid'.
+ *       - in: query
+ *         name: year
+ *         schema: { type: integer }
+ *         description: Optional. Scopes all figures to one calendar year (UTC). Omit for all-time totals.
  *     responses:
  *       200:
  *         description: KPI snapshot
@@ -34,6 +38,7 @@ router.use(requireAuth);
  *                   type: object
  *                   properties:
  *                     filter: { type: string, enum: [Paid, Pending, all], description: The status filter actually applied. }
+ *                     year: { type: integer, nullable: true, description: The year requested, or null when all-time. }
  *                     revenue: { type: number }
  *                     expenses: { type: number }
  *                     balance: { type: number }
