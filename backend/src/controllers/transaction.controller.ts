@@ -78,6 +78,28 @@ function buildRecentTransactionsFilter(
   return filter;
 }
 
+// The most-recent-by-date transactions can genuinely all belong to one user/category
+// for stretches of the sample data (e.g. a run of same-day expense entries). Pulling
+// a wider pool than we need and swapping in the most recent transaction of a missing
+// category keeps the widget honest about there being two categories at all, while
+// staying sorted by date and never touching the list when the top N are already mixed.
+function diversifyByCategory<T extends { category: string; date: Date }>(pool: T[], limit: number): T[] {
+  const top = pool.slice(0, limit);
+  if (top.length <= 1 || top.length < limit) return top;
+
+  const presentCategories = new Set(top.map((t) => t.category));
+  const missingCategory = pool.find((t) => !presentCategories.has(t.category))?.category;
+  if (!missingCategory) return top;
+
+  const replacement = pool.find((t) => t.category === missingCategory);
+  if (!replacement) return top;
+
+  const result = [...top];
+  result[result.length - 1] = replacement;
+  result.sort((a, b) => b.date.getTime() - a.date.getTime());
+  return result;
+}
+
 const MONTH_KEYS_2_DIGIT = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 
 export const getTransactionSummary = asyncHandler(async (req: Request, res: Response) => {
@@ -172,7 +194,11 @@ export const getTransactionSummary = asyncHandler(async (req: Request, res: Resp
     setCached(cacheKey, cached);
   }
 
-  const recentTransactions = await Transaction.find(recentFilter).sort({ date: -1 }).limit(recentInput.limit).lean();
+  // Fetch a wider pool than requested so a same-category run at the very top of the
+  // date-sorted list (see diversifyByCategory above) has somewhere to pull a mix from.
+  const recentPoolSize = Math.min(100, Math.max(recentInput.limit * 10, 50));
+  const recentPool = await Transaction.find(recentFilter).sort({ date: -1 }).limit(recentPoolSize).lean();
+  const recentTransactions = diversifyByCategory(recentPool, recentInput.limit);
   const recentTotal = await Transaction.countDocuments(recentFilter);
 
   res.json({

@@ -23,9 +23,10 @@ interface TopbarProps {
   onOpenMenu: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  title?: string;
 }
 
-export function Topbar({ onOpenMenu, searchValue, onSearchChange }: TopbarProps) {
+export function Topbar({ onOpenMenu, searchValue, onSearchChange, title = 'Dashboard' }: TopbarProps) {
   const { user, logout } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
 
@@ -40,7 +41,7 @@ export function Topbar({ onOpenMenu, searchValue, onSearchChange }: TopbarProps)
           onClick={onOpenMenu}
         />
         <Heading size="lg" letterSpacing="tight">
-          Dashboard
+          {title}
         </Heading>
       </Flex>
 

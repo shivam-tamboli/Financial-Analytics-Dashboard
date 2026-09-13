@@ -145,7 +145,7 @@ export function OverviewChart({ yearly, isLoading }: OverviewChartProps) {
               name="Revenue"
               stroke="#22c55e"
               strokeWidth={2.5}
-              dot={false}
+              dot={{ r: 3 }}
               activeDot={{ r: 5 }}
             />
             <Line
@@ -154,7 +154,7 @@ export function OverviewChart({ yearly, isLoading }: OverviewChartProps) {
               name="Expenses"
               stroke="#f5a623"
               strokeWidth={2.5}
-              dot={false}
+              dot={{ r: 3 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

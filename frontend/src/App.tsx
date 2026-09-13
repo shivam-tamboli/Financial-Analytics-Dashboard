@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ComingSoonPage } from './pages/ComingSoonPage';
 import { useAuth } from './context/AuthContext';
 
 function LoginRoute() {
@@ -19,6 +21,46 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <AnalyticsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wallet"
+        element={
+          <ProtectedRoute>
+            <ComingSoonPage title="Wallet" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/personal"
+        element={
+          <ProtectedRoute>
+            <ComingSoonPage title="Personal" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/message"
+        element={
+          <ProtectedRoute>
+            <ComingSoonPage title="Message" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <ComingSoonPage title="Settings" />
           </ProtectedRoute>
         }
       />

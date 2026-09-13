@@ -13,15 +13,18 @@ export interface NavItem {
   key: string;
   label: string;
   icon: IconType;
+  /** Route to navigate to. */
+  path: string;
+  /** For items that live as a section within the Dashboard page rather than their own route — scrolls to this element id instead of just navigating. */
   targetId?: string;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: FiGrid, targetId: 'top' },
-  { key: 'transactions', label: 'Transactions', icon: FiFileText, targetId: 'transactions-section' },
-  { key: 'wallet', label: 'Wallet', icon: FaWallet },
-  { key: 'analytics', label: 'Analytics', icon: FiBarChart2, targetId: 'overview-section' },
-  { key: 'personal', label: 'Personal', icon: FiUser },
-  { key: 'message', label: 'Message', icon: FiMail },
-  { key: 'setting', label: 'Setting', icon: FiSettings },
+  { key: 'dashboard', label: 'Dashboard', icon: FiGrid, path: '/', targetId: 'top' },
+  { key: 'transactions', label: 'Transactions', icon: FiFileText, path: '/', targetId: 'transactions-section' },
+  { key: 'wallet', label: 'Wallet', icon: FaWallet, path: '/wallet' },
+  { key: 'analytics', label: 'Analytics', icon: FiBarChart2, path: '/analytics' },
+  { key: 'personal', label: 'Personal', icon: FiUser, path: '/personal' },
+  { key: 'message', label: 'Message', icon: FiMail, path: '/message' },
+  { key: 'setting', label: 'Setting', icon: FiSettings, path: '/settings' },
 ];

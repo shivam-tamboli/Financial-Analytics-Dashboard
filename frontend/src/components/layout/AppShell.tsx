@@ -14,9 +14,11 @@ interface AppShellProps {
   children: ReactNode;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  /** Heading shown in the top bar. Defaults to "Dashboard" for the existing pages that don't pass it. */
+  title?: string;
 }
 
-export function AppShell({ children, searchValue, onSearchChange }: AppShellProps) {
+export function AppShell({ children, searchValue, onSearchChange, title }: AppShellProps) {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (
@@ -35,7 +37,7 @@ export function AppShell({ children, searchValue, onSearchChange }: AppShellProp
       </Drawer>
 
       <Box flex={1} minW={0} id="top">
-        <Topbar onOpenMenu={onOpen} searchValue={searchValue} onSearchChange={onSearchChange} />
+        <Topbar onOpenMenu={onOpen} searchValue={searchValue} onSearchChange={onSearchChange} title={title} />
         <Box px={{ base: 4, md: 8 }} pb={12}>
           {children}
         </Box>

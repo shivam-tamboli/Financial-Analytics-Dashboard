@@ -1,52 +1,30 @@
-import {
-  Box,
-  Button,
-  Flex,
-  Heading,
-  Icon,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Stack,
-  Text,
-  useDisclosure,
-  useToast,
-} from '@chakra-ui/react';
-import { FiLogOut } from 'react-icons/fi';
-import { useState } from 'react';
+import { Box, Flex, Heading, Icon, Stack, Text } from '@chakra-ui/react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { NAV_ITEMS } from './navItems';
-import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
   onNavigate?: () => void;
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const [active, setActive] = useState('dashboard');
-  const { user, logout } = useAuth();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Derived straight from the route rather than tracked separately — Dashboard and
+  // Transactions share path '/' (they're anchors within the same page), so the first
+  // match in NAV_ITEMS order ("dashboard") wins whenever the URL is just '/'.
+  const active = NAV_ITEMS.find((item) => item.path === location.pathname)?.key ?? 'dashboard';
 
-  function handleClick(key: string, targetId?: string) {
-    setActive(key);
-    if (key === 'setting') {
-      onOpen();
-      return;
-    }
+  function handleClick(path: string, targetId?: string) {
     if (targetId) {
-      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (location.pathname === path) {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        navigate(path);
+        // Give the target page a render pass to mount before scrolling to its section.
+        setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      }
     } else {
-      toast({
-        title: 'Coming soon',
-        description: 'This section is outside the assignment scope.',
-        status: 'info',
-        duration: 2500,
-        isClosable: true,
-      });
+      navigate(path);
     }
     onNavigate?.();
   }
@@ -77,7 +55,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               bg={isActive ? 'rgba(34,197,94,0.12)' : 'transparent'}
               color={isActive ? 'brand.400' : 'surface.muted'}
               _hover={{ bg: 'rgba(128,128,128,0.08)', color: isActive ? 'brand.400' : 'text.primary' }}
-              onClick={() => handleClick(item.key, item.targetId)}
+              onClick={() => handleClick(item.path, item.targetId)}
               textAlign="left"
             >
               {isActive && (
@@ -91,30 +69,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           );
         })}
       </Stack>
-
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent bg="surface.panel" border="1px solid" borderColor="surface.border">
-          <ModalHeader>Account settings</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Stack spacing={1}>
-              <Text fontSize="sm" color="surface.muted">
-                Signed in as
-              </Text>
-              <Text fontWeight={600}>{user?.name}</Text>
-              <Text fontSize="sm" color="surface.muted">
-                @{user?.username}
-              </Text>
-            </Stack>
-          </ModalBody>
-          <ModalFooter>
-            <Button leftIcon={<FiLogOut />} colorScheme="red" variant="outline" onClick={logout} w="full">
-              Log out
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Flex>
   );
 }

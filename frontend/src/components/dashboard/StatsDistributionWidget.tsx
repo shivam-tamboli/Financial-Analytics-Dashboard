@@ -53,18 +53,26 @@ function Donut({
 }
 
 export function StatsDistributionWidget() {
-  // Explicitly status=all here — the point of this widget is showing the Paid vs
-  // Pending split, which the app's default Paid-only filter would otherwise hide.
-  const query = useStatsQuery('all');
+  // status=all for the Status donut — the point of that donut is showing the Paid
+  // vs Pending split, which a Paid-only filter would hide entirely.
+  const statusQuery = useStatsQuery('all');
+  // status=Paid for the Category donut — this needs to agree with the KPI cards
+  // above it on the same screen, which are Paid-only. Using 'all' here previously
+  // meant this donut's Revenue/Expense totals silently disagreed with the KPI
+  // numbers (e.g. counting Pending transactions the KPI cards never count).
+  const categoryQuery = useStatsQuery('Paid');
+
+  const isLoading = statusQuery.isLoading || categoryQuery.isLoading;
+  const error = statusQuery.error ?? categoryQuery.error;
 
   return (
     <Box bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5}>
-      <HStack spacing={1.5} mb={1}>
+      <HStack spacing={1.5} mb={4}>
         <Text fontWeight={700} fontSize="lg">
           Stats Distribution
         </Text>
         <Tooltip
-          label="These counts include ALL transactions (Paid and Pending), unlike the Paid-only KPI cards above."
+          label="Status includes all transactions (Paid and Pending). Category is Paid-only, matching the KPI cards above."
           fontSize="xs"
           placement="top"
           hasArrow
@@ -76,22 +84,19 @@ export function StatsDistributionWidget() {
           </Box>
         </Tooltip>
       </HStack>
-      <Text fontSize="xs" color="surface.muted" mb={4}>
-        Includes all transactions, regardless of status
-      </Text>
 
-      {query.isError && (
+      {error && (
         <Box mb={3}>
-          <AlertChip status="error" message={extractErrorMessage(query.error, 'Failed to load stats')} />
+          <AlertChip status="error" message={extractErrorMessage(error, 'Failed to load stats')} />
         </Box>
       )}
 
-      {query.isLoading ? (
+      {isLoading ? (
         <VStack spacing={4} align="stretch">
           <Skeleton height="100px" startColor="surface.panelAlt" endColor="surface.border" borderRadius="lg" />
           <Skeleton height="100px" startColor="surface.panelAlt" endColor="surface.border" borderRadius="lg" />
         </VStack>
-      ) : !query.data || query.data.totalCount === 0 ? (
+      ) : !statusQuery.data || statusQuery.data.totalCount === 0 ? (
         <EmptyState title="No data" description="No transactions in the dataset." />
       ) : (
         <VStack spacing={5} align="stretch">
@@ -99,8 +104,11 @@ export function StatsDistributionWidget() {
             <Text fontSize="xs" fontWeight={600} color="surface.muted" mb={2}>
               Status
             </Text>
+            <Text fontSize="xs" color="surface.muted" fontStyle="italic" mb={2}>
+              Includes all transactions, regardless of status
+            </Text>
             <Donut
-              data={query.data.byStatus.map((s) => ({ key: s.status, count: s.count, total: s.total }))}
+              data={statusQuery.data.byStatus.map((s) => ({ key: s.status, count: s.count, total: s.total }))}
               colors={STATUS_COLORS}
             />
           </Box>
@@ -108,10 +116,15 @@ export function StatsDistributionWidget() {
             <Text fontSize="xs" fontWeight={600} color="surface.muted" mb={2}>
               Category
             </Text>
-            <Donut
-              data={query.data.byCategory.map((c) => ({ key: c.category, count: c.count, total: c.total }))}
-              colors={CATEGORY_COLORS}
-            />
+            <Text fontSize="xs" color="surface.muted" fontStyle="italic" mb={2}>
+              Paid transactions only
+            </Text>
+            {categoryQuery.data && (
+              <Donut
+                data={categoryQuery.data.byCategory.map((c) => ({ key: c.category, count: c.count, total: c.total }))}
+                colors={CATEGORY_COLORS}
+              />
+            )}
           </Box>
         </VStack>
       )}
