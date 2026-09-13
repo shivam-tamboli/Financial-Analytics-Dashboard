@@ -16,7 +16,7 @@ import {
   useDisclosure,
   useToast,
 } from '@chakra-ui/react';
-import { FiLogOut, FiTrendingUp } from 'react-icons/fi';
+import { FiLogOut } from 'react-icons/fi';
 import { useState } from 'react';
 import { NAV_ITEMS } from './navItems';
 import { useAuth } from '../../context/AuthContext';
@@ -54,9 +54,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <Flex direction="column" h="full" bg="surface.panel" borderRight="1px solid" borderColor="surface.border" py={6}>
       <Flex align="center" gap={2} px={6} mb={10}>
-        <Flex boxSize={8} borderRadius="lg" bg="brand.500" align="center" justify="center" color="black">
-          <Icon as={FiTrendingUp} boxSize={4} />
-        </Flex>
+        <Box as="img" src="/Pentalogo.png" alt="Penta" boxSize={8} objectFit="contain" />
         <Heading size="md" letterSpacing="tight">
           Penta
         </Heading>

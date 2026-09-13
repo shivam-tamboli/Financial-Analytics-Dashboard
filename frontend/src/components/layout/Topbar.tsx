@@ -17,6 +17,7 @@ import {
 } from '@chakra-ui/react';
 import { FiBell, FiLogOut, FiMenu, FiMoon, FiSearch, FiSun } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface TopbarProps {
   onOpenMenu: () => void;
@@ -82,7 +83,13 @@ export function Topbar({ onOpenMenu, searchValue, onSearchChange }: TopbarProps)
 
         <Menu>
           <MenuButton>
-            <Avatar size="sm" name={user?.name} bg="brand.500" color="black" />
+            <Avatar
+              size="sm"
+              name={user?.name}
+              src={user?.username ? getAvatarUrl(user.username) : undefined}
+              bg="brand.500"
+              color="black"
+            />
           </MenuButton>
           <MenuList bg="surface.panel" borderColor="surface.border">
             <Flex direction="column" px={3} py={1}>

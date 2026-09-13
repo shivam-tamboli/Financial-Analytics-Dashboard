@@ -18,6 +18,7 @@ import {
 } from '@chakra-ui/react';
 import { FiFilter, FiSearch, FiX } from 'react-icons/fi';
 import type { TransactionFilters, TransactionUser } from '../../types';
+import { DateRangePicker } from './DateRangePicker';
 
 interface TransactionFiltersBarProps {
   filters: TransactionFilters;
@@ -33,8 +34,8 @@ const selectStyle = {
 };
 
 export function TransactionFiltersBar({ filters, onChange, users }: TransactionFiltersBarProps) {
-  const activeAdvancedCount = [filters.dateFrom, filters.dateTo, filters.amountMin, filters.amountMax].filter(
-    (v) => v !== undefined && v !== ''
+  const activeAdvancedCount = [filters.amountMin, filters.amountMax].filter(
+    (v) => v !== undefined && (v as unknown as string) !== ''
   ).length;
 
   const hasAnyFilter =
@@ -42,6 +43,7 @@ export function TransactionFiltersBar({ filters, onChange, users }: TransactionF
     Boolean(filters.category) ||
     Boolean(filters.status) ||
     Boolean(filters.userId) ||
+    Boolean(filters.dateFrom) ||
     activeAdvancedCount > 0;
 
   function update(partial: Partial<TransactionFilters>) {
@@ -98,6 +100,12 @@ export function TransactionFiltersBar({ filters, onChange, users }: TransactionF
         ))}
       </Select>
 
+      <DateRangePicker
+        dateFrom={filters.dateFrom}
+        dateTo={filters.dateTo}
+        onChange={(range) => update(range)}
+      />
+
       <Popover placement="bottom-end">
         <PopoverTrigger>
           <Button
@@ -129,27 +137,6 @@ export function TransactionFiltersBar({ filters, onChange, users }: TransactionF
           <PopoverArrow bg="surface.panel" />
           <PopoverBody p={4}>
             <Stack spacing={4}>
-              <Box>
-                <Text fontSize="xs" color="surface.muted" mb={2}>
-                  Date range
-                </Text>
-                <HStack>
-                  <Input
-                    type="date"
-                    size="sm"
-                    value={filters.dateFrom ?? ''}
-                    onChange={(e) => update({ dateFrom: e.target.value || undefined })}
-                    {...selectStyle}
-                  />
-                  <Input
-                    type="date"
-                    size="sm"
-                    value={filters.dateTo ?? ''}
-                    onChange={(e) => update({ dateTo: e.target.value || undefined })}
-                    {...selectStyle}
-                  />
-                </HStack>
-              </Box>
               <Box>
                 <Text fontSize="xs" color="surface.muted" mb={2}>
                   Amount range ($)

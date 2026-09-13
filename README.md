@@ -102,8 +102,8 @@ of the totals.
 - JWT login/logout, protected API routes
 - Dashboard: balance/revenue/expenses/savings cards, income-vs-expense chart, category
   breakdown, recent transactions (filterable by status, user, month, or year)
-- Transaction table: search, filters (date, amount, category, status, user), sortable
-  columns, pagination
+- Transaction table: search, filters (calendar date range, amount, category, status, user),
+  sortable columns, pagination
 - CSV export: pick columns, export the current filtered view or everything, downloads
   automatically
 - Dark/light theme toggle, persisted across reloads

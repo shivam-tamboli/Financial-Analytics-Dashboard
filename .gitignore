@@ -12,3 +12,8 @@ transactions (1).json
 # Assignment reference materials — not needed to run the app, kept out of the public repo
 full-stack assignment (1).pdf
 Screenshot 2026-09-13 at 12.06.02 AM.png
+
+# Source logo dropped at the project root — the app serves the copy in
+# frontend/public/ instead. Anchored with a leading slash so it only matches
+# the root file, not the public/ copy the app actually depends on.
+/Pentalogo.png
