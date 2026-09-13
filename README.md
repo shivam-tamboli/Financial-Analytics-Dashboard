@@ -19,7 +19,9 @@ backend/    Express API, Mongoose models, seed script
 frontend/   Vite + React SPA
 ```
 
-## System overview
+## Diagrams
+
+### System overview
 
 ```mermaid
 flowchart LR
@@ -29,6 +31,17 @@ flowchart LR
 
 The frontend never talks to the database directly — every request goes through the API,
 which validates the JWT and does the actual querying.
+
+### User flow
+
+```mermaid
+flowchart LR
+    A[Login] --> B[Dashboard]
+    B --> C[View charts / summary]
+    C --> D[Filter & search transactions]
+    D --> E[Export CSV]
+    E --> F[Logout]
+```
 
 ## Setup
 

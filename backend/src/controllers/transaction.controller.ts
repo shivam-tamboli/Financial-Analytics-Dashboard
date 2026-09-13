@@ -92,9 +92,17 @@ export const getTransactionSummary = asyncHandler(async (req: Request, res: Resp
   const recentInput = recentTransactionsQuerySchema.parse(req.query);
 
   // Pending transactions show up in the table/recent list, but never count toward
-  // any financial total — every aggregation below is forced to Paid regardless of
-  // whatever status filter the caller passed for the general view.
-  const paidFilter: FilterQuery<TransactionDocument> = { ...filter, status: PAID_STATUS };
+  // any financial total. This has to *intersect* with the caller's own status
+  // filter, not overwrite it — spreading `filter` and then unconditionally setting
+  // status: 'Paid' would silently discard an explicit status=Pending filter and
+  // show the full Paid total as if no filter were applied at all. If the caller
+  // asked for Pending, the honest Paid-only answer is zero, not "ignore your filter."
+  const paidFilter: FilterQuery<TransactionDocument> = { ...filter };
+  if (filter.status && filter.status !== PAID_STATUS) {
+    paidFilter.status = { $in: [] as TransactionDocument['status'][] };
+  } else {
+    paidFilter.status = PAID_STATUS;
+  }
   const recentFilter = buildRecentTransactionsFilter(filter, recentInput);
 
   const [totalsByCategory, monthlyTrendRaw, recentTransactions] = await Promise.all([
