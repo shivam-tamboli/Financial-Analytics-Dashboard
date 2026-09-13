@@ -11,6 +11,11 @@ import { ApiError } from './utils/ApiError';
 export function createApp(): Application {
   const app = express();
 
+  // Render (and most PaaS hosts) sit behind a reverse proxy and set X-Forwarded-For.
+  // Trusting exactly one hop lets express-rate-limit key on the real client IP
+  // instead of the proxy's — without this it throws on every request behind a proxy.
+  app.set('trust proxy', 1);
+
   app.use(helmet());
   app.use(
     cors({
