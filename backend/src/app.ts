@@ -2,7 +2,9 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
+import { swaggerSpec } from './config/swagger';
 import authRoutes from './routes/auth.routes';
 import transactionRoutes from './routes/transaction.routes';
 import { errorHandler, notFoundHandler } from './middleware/error';
@@ -15,6 +17,11 @@ export function createApp(): Application {
   // Trusting exactly one hop lets express-rate-limit key on the real client IP
   // instead of the proxy's — without this it throws on every request behind a proxy.
   app.set('trust proxy', 1);
+
+  // Registered before helmet so its CSP never applies here — swagger-ui-express
+  // ships its own inline styles/scripts that a strict default CSP would block.
+  // Every other route still goes through helmet normally.
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(helmet());
   app.use(

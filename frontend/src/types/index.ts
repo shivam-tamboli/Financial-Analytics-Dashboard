@@ -2,8 +2,7 @@ export type TransactionCategory = 'Revenue' | 'Expense';
 export type TransactionStatus = 'Paid' | 'Pending';
 
 export interface Transaction {
-  _id: string;
-  id: number;
+  id: string;
   date: string;
   amount: number;
   category: TransactionCategory;
@@ -43,8 +42,19 @@ export interface MonthlyTrendPoint {
   expense: number;
 }
 
+export interface MonthBreakdown {
+  revenue: number;
+  expenses: number;
+}
+
+export interface YearBreakdown {
+  revenue: number;
+  expenses: number;
+  monthly: Record<string, MonthBreakdown>;
+}
+
 export interface SummaryResponse {
-  metrics: {
+  summary: {
     balance: number;
     revenue: number;
     expenses: number;
@@ -52,11 +62,22 @@ export interface SummaryResponse {
   };
   categoryBreakdown: CategoryBreakdown[];
   monthlyTrend: MonthlyTrendPoint[];
+  yearly: Record<string, YearBreakdown>;
   recentTransactions: Transaction[];
 }
 
-export type SortableField = 'date' | 'amount' | 'category' | 'status' | 'user_name' | 'id';
+export type SortableField = 'date' | 'amount' | 'category' | 'status' | 'user_name';
 export type SortOrder = 'asc' | 'desc';
+
+export type RecentTransactionsFilterBy = 'date' | 'status' | 'user' | 'month' | 'year';
+
+export interface RecentTransactionsFilter {
+  filterBy?: RecentTransactionsFilterBy;
+  status?: TransactionStatus;
+  user?: string;
+  month?: number;
+  year?: number;
+}
 
 export interface TransactionFilters {
   search?: string;

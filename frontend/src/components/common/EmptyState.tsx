@@ -12,7 +12,7 @@ export function EmptyState({ title, description, icon = FiInbox }: EmptyStatePro
   return (
     <VStack py={12} spacing={2} color="surface.muted">
       <Icon as={icon} boxSize={8} />
-      <Text fontWeight={600} color="gray.200">
+      <Text fontWeight={600} color="text.primary">
         {title}
       </Text>
       {description && (

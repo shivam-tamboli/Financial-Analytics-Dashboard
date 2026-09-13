@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
@@ -31,24 +30,24 @@ function nameFor(userId: string): string {
   return USER_DIRECTORY[userId] ?? userId;
 }
 
-// Sample data has no real email, so derive a stable placeholder one from the
-// display name purely to key the Gravatar hash.
-function emailFor(userId: string): string {
-  const local = nameFor(userId)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '.')
-    .replace(/^\.+|\.+$/g, '');
-  return `${local}@example.com`;
+// Small deterministic string hash — same name always produces the same number,
+// so a given user's avatar doesn't change between requests or re-seeds.
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
-// Gravatar, keyed by an MD5 hash of the (trimmed, lowercased) email. `d=404`
-// makes Gravatar respond with an actual 404 instead of a generic silhouette
-// when no image is registered for that hash, so the <img> element's onerror
-// fires and the frontend's Avatar component falls back to name-based initials
-// instead of layering one placeholder image on top of another.
+// randomuser.me's portrait sets only go up to index 99, split by gender. We don't
+// have a real gender for these sample users, so it's derived from the same hash
+// as the portrait index — arbitrary, but stable per user, which is all that matters.
 function avatarFor(userId: string): string {
-  const hash = crypto.createHash('md5').update(emailFor(userId)).digest('hex');
-  return `https://www.gravatar.com/avatar/${hash}?s=200&d=404`;
+  const hash = hashString(nameFor(userId));
+  const index = (hash % 99) + 1;
+  const gender = hash % 2 === 0 ? 'women' : 'men';
+  return `https://randomuser.me/api/portraits/${gender}/${index}.jpg`;
 }
 
 async function seed(): Promise<void> {
@@ -58,9 +57,13 @@ async function seed(): Promise<void> {
   const raw = fs.readFileSync(dataPath, 'utf-8');
   const transactions: RawTransaction[] = JSON.parse(raw);
 
+  // Drops any index no longer declared on the schema (e.g. the old unique index on
+  // the removed numeric `id` field) before inserting — otherwise a stale unique
+  // index rejects every doc after the first, since they'd all have `id: undefined`.
+  await Transaction.syncIndexes();
+
   await Transaction.deleteMany({});
   const docs = transactions.map((t) => ({
-    id: t.id,
     date: new Date(t.date),
     amount: t.amount,
     category: t.category,
@@ -90,7 +93,7 @@ async function seed(): Promise<void> {
   // script like this one can disconnect while that build is still in flight,
   // silently dropping whichever index hadn't finished yet. Waiting for both
   // explicitly guarantees every index in the schema actually exists before exit.
-  await Promise.all([Transaction.createIndexes(), User.createIndexes()]);
+  await Promise.all([Transaction.syncIndexes(), User.syncIndexes()]);
   console.log('[seed] indexes verified');
 
   await disconnectDB();

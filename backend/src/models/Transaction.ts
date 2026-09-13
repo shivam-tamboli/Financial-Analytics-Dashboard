@@ -2,7 +2,6 @@ import { Schema, model, Document } from 'mongoose';
 import { TransactionCategory, TransactionStatus } from '../types';
 
 export interface TransactionDocument extends Document {
-  id: number;
   date: Date;
   amount: number;
   category: TransactionCategory;
@@ -14,7 +13,6 @@ export interface TransactionDocument extends Document {
 
 const transactionSchema = new Schema<TransactionDocument>(
   {
-    id: { type: Number, required: true, unique: true },
     date: { type: Date, required: true },
     amount: { type: Number, required: true },
     category: { type: String, enum: ['Revenue', 'Expense'], required: true },
@@ -23,7 +21,20 @@ const transactionSchema = new Schema<TransactionDocument>(
     user_name: { type: String, required: true },
     user_profile: { type: String, required: true },
   },
-  { versionKey: false }
+  {
+    versionKey: false,
+    // Mongoose already adds a virtual `id` getter (string form of _id) to every
+    // schema unless a real path named `id` exists — we used to define one, which
+    // shadowed it. Now that it's gone, `doc.id` and JSON output both resolve to
+    // the Mongo id automatically, so _id never needs to reach the client.
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret: Record<string, unknown>) => {
+        delete ret._id;
+        return ret;
+      },
+    },
+  }
 );
 
 // Compound index supporting the common filter shape (category/status) sorted by date,

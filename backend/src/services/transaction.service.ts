@@ -2,11 +2,13 @@ import { FilterQuery } from 'mongoose';
 import { z } from 'zod';
 import { TransactionDocument } from '../models/Transaction';
 
-export const SORTABLE_FIELDS = ['date', 'amount', 'category', 'status', 'user_name', 'id'] as const;
+export const SORTABLE_FIELDS = ['date', 'amount', 'category', 'status', 'user_name'] as const;
 export const EXPORTABLE_COLUMNS = ['id', 'date', 'amount', 'category', 'status', 'user_id', 'user_name'] as const;
 
 export type SortableField = (typeof SORTABLE_FIELDS)[number];
 export type ExportableColumn = (typeof EXPORTABLE_COLUMNS)[number];
+
+export const PAID_STATUS = 'Paid';
 
 export const transactionFilterSchema = z.object({
   search: z.string().trim().optional(),
@@ -67,11 +69,21 @@ export function buildTransactionFilter(input: TransactionFilterInput): FilterQue
     const numeric = Number(input.search);
     if (!Number.isNaN(numeric)) {
       orClauses.push({ amount: numeric });
-      orClauses.push({ id: numeric });
     }
 
     filter.$or = orClauses;
   }
 
   return filter;
+}
+
+/**
+ * `.lean()` queries return plain objects straight from the driver, so the schema's
+ * `toJSON` transform (which only fires on hydrated Mongoose documents) never runs.
+ * This is the equivalent cleanup for the lean path: Mongo's `_id` becomes the `id`
+ * every API response and the frontend use, and never reaches the client.
+ */
+export function toTransactionDTO<T extends { _id: unknown }>(doc: T): Omit<T, '_id'> & { id: string } {
+  const { _id, ...rest } = doc;
+  return { id: String(_id), ...rest };
 }

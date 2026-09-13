@@ -25,18 +25,30 @@ const colors = {
   danger: {
     500: '#ef5350',
   },
-  surface: {
-    bg: '#0b0e11',
-    panel: '#12161b',
-    panelAlt: '#171c22',
-    border: '#232a32',
-    muted: '#8b95a1',
+};
+
+// Dark is the default (matches the design), but every one of these has a light
+// counterpart so the whole app — cards, borders, muted/primary text, charts —
+// flips cleanly with the color mode toggle instead of just the page background.
+const semanticTokens = {
+  colors: {
+    surface: {
+      bg: { default: '#f7f8fa', _dark: '#0b0e11' },
+      panel: { default: '#ffffff', _dark: '#12161b' },
+      panelAlt: { default: '#f1f3f5', _dark: '#171c22' },
+      border: { default: '#e2e8f0', _dark: '#232a32' },
+      muted: { default: '#64748b', _dark: '#8b95a1' },
+    },
+    text: {
+      primary: { default: '#111827', _dark: '#f5f6f7' },
+    },
   },
 };
 
 export const theme = extendTheme({
   config,
   colors,
+  semanticTokens,
   fonts: {
     heading: `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`,
     body: `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`,
@@ -44,8 +56,8 @@ export const theme = extendTheme({
   styles: {
     global: {
       body: {
-        bg: colors.surface.bg,
-        color: 'gray.100',
+        bg: 'surface.bg',
+        color: 'text.primary',
       },
     },
   },
@@ -54,14 +66,14 @@ export const theme = extendTheme({
       variants: {
         simple: {
           th: {
-            color: colors.surface.muted,
-            borderColor: colors.surface.border,
+            color: 'surface.muted',
+            borderColor: 'surface.border',
             textTransform: 'none',
             fontWeight: 600,
             fontSize: 'xs',
           },
           td: {
-            borderColor: colors.surface.border,
+            borderColor: 'surface.border',
           },
         },
       },

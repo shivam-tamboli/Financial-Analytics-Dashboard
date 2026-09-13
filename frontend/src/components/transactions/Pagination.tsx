@@ -65,7 +65,7 @@ export function Pagination({ pagination, onPageChange, onLimitChange }: Paginati
                 size="sm"
                 variant={p === page ? 'solid' : 'ghost'}
                 bg={p === page ? 'brand.500' : 'transparent'}
-                color={p === page ? 'black' : 'gray.200'}
+                color={p === page ? 'black' : undefined}
                 _hover={{ bg: p === page ? 'brand.400' : 'surface.panelAlt' }}
                 onClick={() => onPageChange(p)}
                 minW="36px"

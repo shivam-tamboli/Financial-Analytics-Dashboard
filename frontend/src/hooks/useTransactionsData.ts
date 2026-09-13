@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchSummary, fetchTransactions, fetchTransactionUsers } from '../api/transactions';
-import type { TransactionFilters, TransactionQuery } from '../types';
+import type { RecentTransactionsFilter, TransactionFilters, TransactionQuery } from '../types';
 
 export function useTransactionsQuery(query: TransactionQuery) {
   return useQuery({
@@ -10,10 +10,10 @@ export function useTransactionsQuery(query: TransactionQuery) {
   });
 }
 
-export function useSummaryQuery(filters: TransactionFilters) {
+export function useSummaryQuery(filters: TransactionFilters, recentFilter: RecentTransactionsFilter = {}) {
   return useQuery({
-    queryKey: ['transactions-summary', filters],
-    queryFn: () => fetchSummary(filters),
+    queryKey: ['transactions-summary', filters, recentFilter],
+    queryFn: () => fetchSummary(filters, recentFilter),
     placeholderData: (prev) => prev,
   });
 }

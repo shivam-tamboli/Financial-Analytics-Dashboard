@@ -62,7 +62,7 @@ export function CategoryBreakdownChart({ data, isLoading }: CategoryBreakdownCha
               <HStack key={entry.category} justify="space-between">
                 <HStack spacing={2}>
                   <Box boxSize={2.5} borderRadius="full" bg={COLORS[entry.category] ?? '#8b95a1'} />
-                  <Text fontSize="sm" color="gray.200">
+                  <Text fontSize="sm">
                     {entry.category}
                   </Text>
                 </HStack>

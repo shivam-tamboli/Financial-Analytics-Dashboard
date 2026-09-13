@@ -1,4 +1,4 @@
-import { Box, Flex, HStack, Skeleton, Text } from '@chakra-ui/react';
+import { Box, Flex, HStack, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
 import {
   CartesianGrid,
   Line,
@@ -36,6 +36,10 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps<ValueType,
 }
 
 export function OverviewChart({ data, isLoading }: OverviewChartProps) {
+  const gridStroke = useColorModeValue('#e2e8f0', '#232a32');
+  const axisStroke = useColorModeValue('#4a5568', '#8b95a1');
+  const axisLabelFill = useColorModeValue('#2d3748', '#c3cbd4');
+
   return (
     <Box
       id="overview-section"
@@ -67,23 +71,25 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
       ) : data.length === 0 ? (
         <EmptyState title="No trend data" description="Try widening your filters to see income vs. expense trends." />
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-            <CartesianGrid stroke="#232a32" vertical={false} />
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 18 }}>
+            <CartesianGrid stroke={gridStroke} vertical={false} />
             <XAxis
               dataKey="month"
               tickFormatter={formatMonthLabel}
-              stroke="#8b95a1"
+              stroke={axisStroke}
               fontSize={12}
               tickLine={false}
               axisLine={false}
+              label={{ value: 'Month', position: 'insideBottom', offset: -12, fill: axisLabelFill, fontSize: 12 }}
             />
             <YAxis
-              stroke="#8b95a1"
+              stroke={axisStroke}
               fontSize={12}
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) => formatCompactCurrency(v)}
+              label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', fill: axisLabelFill, fontSize: 12 }}
             />
             <Tooltip content={ChartTooltip} />
             <Line

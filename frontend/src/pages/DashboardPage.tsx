@@ -11,13 +11,14 @@ import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery, useTransactionUsersQuery } from '../hooks/useTransactionsData';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { extractErrorMessage } from '../api/client';
-import type { TransactionFilters } from '../types';
+import type { RecentTransactionsFilter, TransactionFilters } from '../types';
 
 export function DashboardPage() {
   const [filters, setFilters] = useState<TransactionFilters>({});
+  const [recentFilter, setRecentFilter] = useState<RecentTransactionsFilter>({});
   const debouncedFilters = useDebouncedValue(filters, 350);
 
-  const summaryQuery = useSummaryQuery(debouncedFilters);
+  const summaryQuery = useSummaryQuery(debouncedFilters, recentFilter);
   const usersQuery = useTransactionUsersQuery();
 
   return (
@@ -33,28 +34,28 @@ export function DashboardPage() {
         <HStack spacing={4} wrap="wrap">
           <MetricCard
             label="Balance"
-            value={summaryQuery.data?.metrics.balance ?? 0}
+            value={summaryQuery.data?.summary.balance ?? 0}
             icon={FiDollarSign}
             accent="#22c55e"
             isLoading={summaryQuery.isLoading}
           />
           <MetricCard
             label="Revenue"
-            value={summaryQuery.data?.metrics.revenue ?? 0}
+            value={summaryQuery.data?.summary.revenue ?? 0}
             icon={FiTrendingUp}
             accent="#22c55e"
             isLoading={summaryQuery.isLoading}
           />
           <MetricCard
             label="Expenses"
-            value={summaryQuery.data?.metrics.expenses ?? 0}
+            value={summaryQuery.data?.summary.expenses ?? 0}
             icon={FiCreditCard}
             accent="#f5a623"
             isLoading={summaryQuery.isLoading}
           />
           <MetricCard
-            label="Savings (paid)"
-            value={summaryQuery.data?.metrics.savings ?? 0}
+            label="Savings"
+            value={summaryQuery.data?.summary.savings ?? 0}
             icon={FiPieChart}
             accent="#38bdf8"
             isLoading={summaryQuery.isLoading}
@@ -72,6 +73,8 @@ export function DashboardPage() {
                 <RecentTransactions
                   transactions={summaryQuery.data?.recentTransactions ?? []}
                   isLoading={summaryQuery.isLoading}
+                  filter={recentFilter}
+                  onFilterChange={setRecentFilter}
                 />
               </Box>
             </Stack>

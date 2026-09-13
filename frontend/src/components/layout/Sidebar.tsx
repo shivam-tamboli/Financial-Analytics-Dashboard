@@ -78,7 +78,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               position="relative"
               bg={isActive ? 'rgba(34,197,94,0.12)' : 'transparent'}
               color={isActive ? 'brand.400' : 'surface.muted'}
-              _hover={{ bg: 'rgba(255,255,255,0.04)', color: isActive ? 'brand.400' : 'gray.200' }}
+              _hover={{ bg: 'rgba(128,128,128,0.08)', color: isActive ? 'brand.400' : 'text.primary' }}
               onClick={() => handleClick(item.key, item.targetId)}
               textAlign="left"
             >

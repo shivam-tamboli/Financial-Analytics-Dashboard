@@ -1,5 +1,11 @@
-:root {
+/* Chakra adds one of these classes to <body> based on the active color mode —
+   keeps native form controls/scrollbars in sync instead of always looking dark. */
+body.chakra-ui-dark {
   color-scheme: dark;
+}
+
+body.chakra-ui-light {
+  color-scheme: light;
 }
 
 * {

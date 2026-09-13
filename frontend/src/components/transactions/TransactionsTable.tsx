@@ -88,7 +88,7 @@ export function TransactionsTable({
             transactions.map((t) => {
               const isRevenue = t.category === 'Revenue';
               return (
-                <Tr key={t._id} _hover={{ bg: 'surface.panelAlt' }}>
+                <Tr key={t.id} _hover={{ bg: 'surface.panelAlt' }}>
                   <Td>
                     <HStack spacing={3}>
                       <Avatar size="sm" src={t.user_profile} name={t.user_name} />

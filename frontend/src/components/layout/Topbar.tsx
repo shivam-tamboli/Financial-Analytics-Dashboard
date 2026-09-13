@@ -13,8 +13,9 @@ import {
   MenuItem,
   MenuList,
   Text,
+  useColorMode,
 } from '@chakra-ui/react';
-import { FiBell, FiLogOut, FiMenu, FiSearch } from 'react-icons/fi';
+import { FiBell, FiLogOut, FiMenu, FiMoon, FiSearch, FiSun } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 
 interface TopbarProps {
@@ -25,6 +26,7 @@ interface TopbarProps {
 
 export function Topbar({ onOpenMenu, searchValue, onSearchChange }: TopbarProps) {
   const { user, logout } = useAuth();
+  const { colorMode, toggleColorMode } = useColorMode();
 
   return (
     <Flex align="center" justify="space-between" gap={4} px={{ base: 4, md: 8 }} py={5} wrap="wrap">
@@ -56,6 +58,17 @@ export function Topbar({ onOpenMenu, searchValue, onSearchChange }: TopbarProps)
             _focusVisible={{ borderColor: 'brand.500', boxShadow: '0 0 0 1px #22c55e' }}
           />
         </InputGroup>
+
+        <IconButton
+          aria-label={colorMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          icon={colorMode === 'dark' ? <FiSun /> : <FiMoon />}
+          variant="ghost"
+          borderRadius="full"
+          bg="surface.panel"
+          border="1px solid"
+          borderColor="surface.border"
+          onClick={toggleColorMode}
+        />
 
         <IconButton
           aria-label="Notifications"

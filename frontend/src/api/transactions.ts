@@ -2,6 +2,7 @@ import axios from 'axios';
 import { apiClient } from './client';
 import type {
   ExportableColumn,
+  RecentTransactionsFilter,
   SummaryResponse,
   TransactionFilters,
   TransactionListResponse,
@@ -25,9 +26,12 @@ export async function fetchTransactions(query: TransactionQuery): Promise<Transa
   return data;
 }
 
-export async function fetchSummary(filters: TransactionFilters): Promise<SummaryResponse> {
+export async function fetchSummary(
+  filters: TransactionFilters,
+  recentFilter: RecentTransactionsFilter = {}
+): Promise<SummaryResponse> {
   const { data } = await apiClient.get<SummaryResponse>('/transactions/summary', {
-    params: cleanParams(filters),
+    params: cleanParams({ ...filters, ...recentFilter }),
   });
   return data;
 }
