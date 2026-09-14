@@ -79,14 +79,17 @@ export function AnalyticsPage() {
           />
         </HStack>
 
-        {/* alignItems="start" (not "stretch") on purpose — Cashflow is much taller than
-            the two donut widgets combined, and stretching them to match would leave a
-            large empty gap below Category Breakdown before Stats Distribution starts.
-            Keeping both stacked in the same column, each at its own natural height with
-            the page's normal spacing={6} between them, is what actually lines them up. */}
+        {/* alignItems="start" (not "stretch") on purpose — the two columns' stacked
+            content isn't the same height, and stretching either GridItem to match the
+            taller one would leave invisible trailing space below the shorter column's
+            last card instead of the columns just ending at their own natural height.
+            Each column uses the same spacing={6} the rest of the page uses. */}
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="start">
           <GridItem>
-            <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
+            <Stack spacing={6}>
+              <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
+              <ComparePanel />
+            </Stack>
           </GridItem>
           <GridItem>
             <Stack spacing={6}>
@@ -95,8 +98,6 @@ export function AnalyticsPage() {
             </Stack>
           </GridItem>
         </Grid>
-
-        <ComparePanel />
 
         <UserSummarySection />
       </Stack>
