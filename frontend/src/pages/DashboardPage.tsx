@@ -1,18 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Box, Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
-import { FiActivity, FiAward, FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
+import { FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
 import { AppShell } from '../components/layout/AppShell';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { OverviewChart } from '../components/dashboard/OverviewChart';
-import { CategoryBreakdownChart } from '../components/dashboard/CategoryBreakdownChart';
-import { CashflowChart } from '../components/dashboard/CashflowChart';
-import { ComparePanel } from '../components/dashboard/ComparePanel';
-import { StatsDistributionWidget } from '../components/dashboard/StatsDistributionWidget';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { TransactionsSection } from '../components/transactions/TransactionsSection';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery, useTransactionUsersQuery } from '../hooks/useTransactionsData';
-import { useKpisQuery, useCashflowQuery } from '../hooks/useAnalyticsData';
+import { useKpisQuery } from '../hooks/useAnalyticsData';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { extractErrorMessage } from '../api/client';
 import { getLatestYear } from '../utils/analytics';
@@ -35,7 +31,6 @@ export function DashboardPage() {
   const latestYear = useMemo(() => getLatestYear(summaryQuery.data?.yearly), [summaryQuery.data?.yearly]);
 
   const kpisQuery = useKpisQuery(latestYear);
-  const cashflowQuery = useCashflowQuery(latestYear);
 
   return (
     <AppShell
@@ -84,23 +79,6 @@ export function DashboardPage() {
             isLoading={kpisQuery.isLoading}
             tooltip={SAVINGS_TOOLTIP}
           />
-          <MetricCard
-            label="Avg. Transaction Value"
-            value={kpisQuery.data?.averageTransactionValue ?? 0}
-            icon={FiActivity}
-            accent="#a78bfa"
-            isLoading={kpisQuery.isLoading}
-            tooltip={PAID_ONLY_TOOLTIP}
-          />
-          <MetricCard
-            label="Top Category"
-            value={0}
-            displayValue={kpisQuery.data?.topCategory ?? '—'}
-            icon={FiAward}
-            accent="#22c55e"
-            isLoading={kpisQuery.isLoading}
-            tooltip={`${PAID_ONLY_TOOLTIP} Whichever of Revenue/Expense has the larger total.`}
-          />
         </HStack>
 
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
@@ -108,30 +86,13 @@ export function DashboardPage() {
             <OverviewChart yearly={summaryQuery.data?.yearly ?? {}} isLoading={summaryQuery.isLoading} />
           </GridItem>
           <GridItem>
-            <Stack spacing={6} h="full">
-              <CategoryBreakdownChart data={summaryQuery.data?.categoryBreakdown ?? []} isLoading={summaryQuery.isLoading} />
-              <Box flex={1}>
-                <RecentTransactions
-                  transactions={summaryQuery.data?.recentTransactions.data ?? []}
-                  total={summaryQuery.data?.recentTransactions.total ?? 0}
-                  isLoading={summaryQuery.isLoading}
-                  filter={recentFilter}
-                  onFilterChange={setRecentFilter}
-                />
-              </Box>
-            </Stack>
-          </GridItem>
-        </Grid>
-
-        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
-          <GridItem>
-            <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
-          </GridItem>
-          <GridItem>
-            <Stack spacing={6} h="full">
-              <ComparePanel />
-              <StatsDistributionWidget />
-            </Stack>
+            <RecentTransactions
+              transactions={summaryQuery.data?.recentTransactions.data ?? []}
+              total={summaryQuery.data?.recentTransactions.total ?? 0}
+              isLoading={summaryQuery.isLoading}
+              filter={recentFilter}
+              onFilterChange={setRecentFilter}
+            />
           </GridItem>
         </Grid>
 

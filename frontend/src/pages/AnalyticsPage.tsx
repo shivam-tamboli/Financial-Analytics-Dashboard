@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Grid, GridItem, HStack, Stack } from '@chakra-ui/react';
-import { FiActivity, FiAward, FiCreditCard, FiDollarSign, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { FiActivity, FiAward, FiCreditCard, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
 import { AppShell } from '../components/layout/AppShell';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { CashflowChart } from '../components/dashboard/CashflowChart';
+import { CategoryBreakdownChart } from '../components/dashboard/CategoryBreakdownChart';
+import { ComparePanel } from '../components/dashboard/ComparePanel';
 import { StatsDistributionWidget } from '../components/dashboard/StatsDistributionWidget';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery } from '../hooks/useTransactionsData';
@@ -12,7 +14,6 @@ import { extractErrorMessage } from '../api/client';
 import { getLatestYear } from '../utils/analytics';
 
 const PAID_ONLY_TOOLTIP = 'Only Paid transactions are counted. Pending transactions are excluded from all totals.';
-const SAVINGS_TOOLTIP = 'Savings reflects your net balance after all paid expenses.';
 
 export function AnalyticsPage() {
   const [search, setSearch] = useState('');
@@ -59,14 +60,6 @@ export function AnalyticsPage() {
             tooltip={PAID_ONLY_TOOLTIP}
           />
           <MetricCard
-            label="Savings"
-            value={kpisQuery.data?.balance ?? 0}
-            icon={FiPieChart}
-            accent="#38bdf8"
-            isLoading={kpisQuery.isLoading}
-            tooltip={SAVINGS_TOOLTIP}
-          />
-          <MetricCard
             label="Avg. Transaction Value"
             value={kpisQuery.data?.averageTransactionValue ?? 0}
             icon={FiActivity}
@@ -88,6 +81,15 @@ export function AnalyticsPage() {
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
           <GridItem>
             <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
+          </GridItem>
+          <GridItem>
+            <CategoryBreakdownChart data={summaryQuery.data?.categoryBreakdown ?? []} isLoading={summaryQuery.isLoading} />
+          </GridItem>
+        </Grid>
+
+        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
+          <GridItem>
+            <ComparePanel />
           </GridItem>
           <GridItem>
             <StatsDistributionWidget />

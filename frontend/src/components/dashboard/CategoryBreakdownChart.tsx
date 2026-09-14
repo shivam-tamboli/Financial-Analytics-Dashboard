@@ -19,8 +19,11 @@ export function CategoryBreakdownChart({ data, isLoading }: CategoryBreakdownCha
 
   return (
     <Box bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5}>
-      <Text fontWeight={700} fontSize="lg" mb={4}>
+      <Text fontWeight={700} fontSize="lg" mb={1}>
         Category Breakdown
+      </Text>
+      <Text fontSize="xs" color="surface.muted" fontStyle="italic" mb={4}>
+        Paid transactions only
       </Text>
 
       {isLoading ? (
