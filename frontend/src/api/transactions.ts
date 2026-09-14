@@ -41,20 +41,23 @@ export async function fetchTransactionUsers(): Promise<TransactionUser[]> {
   return data.users;
 }
 
-export async function exportTransactionsCsv(
+export type ExportFormat = 'csv' | 'json';
+
+export async function exportTransactions(
+  format: ExportFormat,
   columns: ExportableColumn[],
   filters: TransactionFilters
 ): Promise<{ blob: Blob; filename: string }> {
   try {
     const response = await apiClient.post(
       '/transactions/export',
-      { columns, filters: cleanParams(filters) },
+      { format, columns, filters: cleanParams(filters) },
       { responseType: 'blob' }
     );
 
     const disposition: string = response.headers['content-disposition'] ?? '';
     const match = /filename="?([^"]+)"?/.exec(disposition);
-    const filename = match?.[1] ?? `transactions-export-${Date.now()}.csv`;
+    const filename = match?.[1] ?? `transactions-export-${Date.now()}.${format}`;
 
     return { blob: response.data as Blob, filename };
   } catch (err) {

@@ -18,6 +18,7 @@ import {
   transactionQuerySchema,
 } from '../services/transaction.service';
 import { streamTransactionsAsCsv } from '../services/csv.service';
+import { streamTransactionsAsJson } from '../services/json.service';
 import { getCached, setCached } from '../services/cache.service';
 
 export const listTransactions = asyncHandler(async (req: Request, res: Response) => {
@@ -296,11 +297,12 @@ export const compareSummaryPeriods = asyncHandler(async (req: Request, res: Resp
 });
 
 const exportSchema = z.object({
+  format: z.enum(['csv', 'json']).default('csv'),
   columns: z.array(z.enum(EXPORTABLE_COLUMNS)).optional(),
   filters: transactionFilterSchema.optional(),
 });
 
-export const exportTransactionsCsv = asyncHandler(async (req: Request, res: Response) => {
+export const exportTransactions = asyncHandler(async (req: Request, res: Response) => {
   const body = exportSchema.parse(req.body);
   const columns: ExportableColumn[] = body.columns && body.columns.length > 0 ? body.columns : [...EXPORTABLE_COLUMNS];
   const filter = buildTransactionFilter(body.filters ?? {});
@@ -311,11 +313,18 @@ export const exportTransactionsCsv = asyncHandler(async (req: Request, res: Resp
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `transactions-export-${timestamp}.csv`;
+  const cursor = Transaction.find(filter).sort({ date: -1 }).cursor() as AsyncIterable<InstanceType<typeof Transaction>>;
 
+  if (body.format === 'json') {
+    const filename = `transactions-export-${timestamp}.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await streamTransactionsAsJson(res, columns, cursor);
+    return;
+  }
+
+  const filename = `transactions-export-${timestamp}.csv`;
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-  const cursor = Transaction.find(filter).sort({ date: -1 }).cursor();
-  await streamTransactionsAsCsv(res, columns, cursor as AsyncIterable<InstanceType<typeof Transaction>>);
+  await streamTransactionsAsCsv(res, columns, cursor);
 });

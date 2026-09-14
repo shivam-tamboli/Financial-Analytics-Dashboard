@@ -7,6 +7,7 @@ import { CashflowChart } from '../components/dashboard/CashflowChart';
 import { CategoryBreakdownChart } from '../components/dashboard/CategoryBreakdownChart';
 import { ComparePanel } from '../components/dashboard/ComparePanel';
 import { StatsDistributionWidget } from '../components/dashboard/StatsDistributionWidget';
+import { UserSummarySection } from '../components/dashboard/UserSummarySection';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery } from '../hooks/useTransactionsData';
 import { useKpisQuery, useCashflowQuery } from '../hooks/useAnalyticsData';
@@ -78,23 +79,26 @@ export function AnalyticsPage() {
           />
         </HStack>
 
-        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
+        {/* alignItems="start" (not "stretch") on purpose — Cashflow is much taller than
+            the two donut widgets combined, and stretching them to match would leave a
+            large empty gap below Category Breakdown before Stats Distribution starts.
+            Keeping both stacked in the same column, each at its own natural height with
+            the page's normal spacing={6} between them, is what actually lines them up. */}
+        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="start">
           <GridItem>
             <CashflowChart months={cashflowQuery.data?.months ?? []} isLoading={cashflowQuery.isLoading} />
           </GridItem>
           <GridItem>
-            <CategoryBreakdownChart data={summaryQuery.data?.categoryBreakdown ?? []} isLoading={summaryQuery.isLoading} />
+            <Stack spacing={6}>
+              <CategoryBreakdownChart data={summaryQuery.data?.categoryBreakdown ?? []} isLoading={summaryQuery.isLoading} />
+              <StatsDistributionWidget />
+            </Stack>
           </GridItem>
         </Grid>
 
-        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={6} alignItems="stretch">
-          <GridItem>
-            <ComparePanel />
-          </GridItem>
-          <GridItem>
-            <StatsDistributionWidget />
-          </GridItem>
-        </Grid>
+        <ComparePanel />
+
+        <UserSummarySection />
       </Stack>
     </AppShell>
   );

@@ -24,7 +24,8 @@ import { FiCheckCircle, FiDownload, FiFileText } from 'react-icons/fi';
 import { useQuery } from '@tanstack/react-query';
 import { EXPORT_COLUMN_LABELS, EXPORTABLE_COLUMNS } from '../../types';
 import type { ExportableColumn, TransactionFilters } from '../../types';
-import { exportTransactionsCsv, fetchTransactions } from '../../api/transactions';
+import { exportTransactions, fetchTransactions } from '../../api/transactions';
+import type { ExportFormat } from '../../api/transactions';
 import { AlertChip } from '../common/AlertChip';
 
 interface ExportModalProps {
@@ -39,6 +40,7 @@ type ExportScope = 'filtered' | 'all';
 export function ExportModal({ isOpen, onClose, activeFilters, filteredTotal }: ExportModalProps) {
   const [selectedColumns, setSelectedColumns] = useState<ExportableColumn[]>([...EXPORTABLE_COLUMNS]);
   const [scope, setScope] = useState<ExportScope>('filtered');
+  const [format, setFormat] = useState<ExportFormat>('csv');
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -70,18 +72,21 @@ export function ExportModal({ isOpen, onClose, activeFilters, filteredTotal }: E
     setIsDownloading(true);
     try {
       const filtersToUse = scope === 'filtered' ? activeFilters : {};
-      const { blob, filename } = await exportTransactionsCsv(selectedColumns, filtersToUse);
+      const { blob, filename } = await exportTransactions(format, selectedColumns, filtersToUse);
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename;
+      // JSON always downloads under this exact name; CSV keeps the server's
+      // timestamped suggestion (unchanged from before this format selector existed).
+      const downloadName = format === 'json' ? 'transactions.json' : filename;
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      setSuccess(`Downloaded ${filename}`);
+      setSuccess(`Downloaded ${downloadName}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed');
     } finally {
@@ -142,6 +147,24 @@ export function ExportModal({ isOpen, onClose, activeFilters, filteredTotal }: E
             <Divider borderColor="surface.border" />
 
             <Box>
+              <Text fontSize="sm" fontWeight={600} mb={2}>
+                Format
+              </Text>
+              <RadioGroup value={format} onChange={(v) => setFormat(v as ExportFormat)}>
+                <HStack spacing={6}>
+                  <Radio value="csv" colorScheme="green">
+                    <Text fontSize="sm">CSV</Text>
+                  </Radio>
+                  <Radio value="json" colorScheme="green">
+                    <Text fontSize="sm">JSON</Text>
+                  </Radio>
+                </HStack>
+              </RadioGroup>
+            </Box>
+
+            <Divider borderColor="surface.border" />
+
+            <Box>
               <Flex justify="space-between" align="center" mb={3}>
                 <Text fontSize="sm" fontWeight={600}>
                   Columns to include
@@ -174,7 +197,8 @@ export function ExportModal({ isOpen, onClose, activeFilters, filteredTotal }: E
                 <Icon as={FiCheckCircle} />
                 <Text>
                   Ready to export ~{recordCount} row{recordCount === 1 ? '' : 's'} with {selectedColumns.length}{' '}
-                  column{selectedColumns.length === 1 ? '' : 's'}. The file downloads automatically once generated.
+                  column{selectedColumns.length === 1 ? '' : 's'} as {format.toUpperCase()}. The file downloads
+                  automatically once generated.
                 </Text>
               </HStack>
             </Box>
@@ -194,7 +218,7 @@ export function ExportModal({ isOpen, onClose, activeFilters, filteredTotal }: E
             isDisabled={columnsInvalid || recordCount === 0}
             onClick={handleDownload}
           >
-            Download CSV
+            Export {format.toUpperCase()}
           </Button>
         </ModalFooter>
       </ModalContent>

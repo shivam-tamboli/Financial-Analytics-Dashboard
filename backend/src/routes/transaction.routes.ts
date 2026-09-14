@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import {
   compareSummaryPeriods,
-  exportTransactionsCsv,
+  exportTransactions,
   getTransactionById,
   getTransactionStats,
   getTransactionSummary,
@@ -308,8 +308,11 @@ router.get('/stats', getTransactionStats);
  * @openapi
  * /api/transactions/export:
  *   post:
- *     summary: Export transactions as CSV
- *     description: Streams back a CSV file with Content-Disposition attachment. 404s if no transactions match the given filters.
+ *     summary: Export transactions as CSV or JSON
+ *     description: >
+ *       Streams back a file with Content-Disposition attachment — CSV by default, or a
+ *       JSON array of objects when `format: "json"` is given. Both formats share the same
+ *       `columns` selection and `filters` scoping. 404s if no transactions match the given filters.
  *     tags: [Transactions]
  *     requestBody:
  *       content:
@@ -317,6 +320,10 @@ router.get('/stats', getTransactionStats);
  *           schema:
  *             type: object
  *             properties:
+ *               format:
+ *                 type: string
+ *                 enum: [csv, json]
+ *                 default: csv
  *               columns:
  *                 type: array
  *                 items: { type: string, enum: [id, date, amount, category, status, user_id, user_name] }
@@ -326,10 +333,12 @@ router.get('/stats', getTransactionStats);
  *                 description: Same shape as the list endpoint's filters.
  *     responses:
  *       200:
- *         description: CSV file
+ *         description: CSV or JSON file, depending on `format`
  *         content:
  *           text/csv:
  *             schema: { type: string, format: binary }
+ *           application/json:
+ *             schema: { type: array, items: { type: object } }
  *       404:
  *         description: No transactions match the filters
  *         content:
@@ -338,7 +347,7 @@ router.get('/stats', getTransactionStats);
  *       401:
  *         description: Missing or invalid token
  */
-router.post('/export', exportTransactionsCsv);
+router.post('/export', exportTransactions);
 
 /**
  * @openapi
