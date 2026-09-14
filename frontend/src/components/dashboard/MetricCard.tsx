@@ -12,22 +12,9 @@ interface MetricCardProps {
   tooltip?: string;
   /** Renders in place of the formatted currency value, e.g. for a category name. */
   displayValue?: string;
-  /** Percentage change vs. last month, from /transactions/summary/compare. Omit to hide the chip entirely. */
-  deltaPercent?: number;
-  deltaLoading?: boolean;
 }
 
-export function MetricCard({
-  label,
-  value,
-  icon,
-  accent,
-  isLoading,
-  tooltip,
-  displayValue,
-  deltaPercent,
-  deltaLoading,
-}: MetricCardProps) {
+export function MetricCard({ label, value, icon, accent, isLoading, tooltip, displayValue }: MetricCardProps) {
   return (
     <Flex
       bg="surface.panel"
@@ -63,18 +50,6 @@ export function MetricCard({
             {displayValue ?? formatCurrency(value)}
           </Text>
         )}
-        {deltaLoading ? (
-          <Skeleton height="12px" width="70px" mt={1.5} startColor="surface.panelAlt" endColor="surface.border" />
-        ) : deltaPercent !== undefined ? (
-          <HStack spacing={1} mt={1}>
-            <Text fontSize="xs" fontWeight={700} color={deltaPercent >= 0 ? 'brand.400' : 'danger.500'}>
-              {deltaPercent >= 0 ? '▲' : '▼'} {Math.abs(deltaPercent).toFixed(1)}%
-            </Text>
-            <Text fontSize="xs" color="surface.muted">
-              vs last month
-            </Text>
-          </HStack>
-        ) : null}
       </Box>
     </Flex>
   );

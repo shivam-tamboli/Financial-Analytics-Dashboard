@@ -72,15 +72,7 @@ export function OverviewChart({ yearly, isLoading }: OverviewChartProps) {
   const tickFormatter = view === 'monthly' ? formatMonthLabel : (v: string) => v;
 
   return (
-    <Box
-      id="overview-section"
-      bg="surface.panel"
-      border="1px solid"
-      borderColor="surface.border"
-      borderRadius="xl"
-      p={5}
-      h="full"
-    >
+    <Box id="overview-section" bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5}>
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
         <Text fontWeight={700} fontSize="lg">
           Overview

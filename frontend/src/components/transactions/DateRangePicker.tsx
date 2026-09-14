@@ -56,7 +56,12 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
       dateFrom: toIsoDate(range.from),
       dateTo: range.to ? toIsoDate(range.to) : undefined,
     });
-    if (range.from && range.to) {
+    // react-day-picker's range mode reports a same-day range ({from, to} both set
+    // to the clicked day) on the very first click, not just a bare `from` — so
+    // closing whenever both are present would close the popover before a second,
+    // different day could ever be picked. Only auto-close once the two differ,
+    // i.e. an actual multi-day range has been chosen.
+    if (range.from && range.to && range.to.getTime() !== range.from.getTime()) {
       setIsOpen(false);
     }
   }
@@ -89,7 +94,16 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
               } as React.CSSProperties
             }
           >
-            <DayPicker mode="range" selected={selected} onSelect={handleSelect} numberOfMonths={1} showOutsideDays />
+            <DayPicker
+              mode="range"
+              selected={selected}
+              onSelect={handleSelect}
+              numberOfMonths={1}
+              showOutsideDays
+              captionLayout="dropdown"
+              startMonth={new Date(2015, 0)}
+              endMonth={new Date(new Date().getFullYear() + 1, 11)}
+            />
           </Box>
           {selected?.from && (
             <Button size="xs" variant="ghost" w="full" mt={1} onClick={() => onChange({ dateFrom: undefined, dateTo: undefined })}>

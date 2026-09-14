@@ -12,10 +12,10 @@ import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { TransactionsSection } from '../components/transactions/TransactionsSection';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery, useTransactionUsersQuery } from '../hooks/useTransactionsData';
-import { useKpisQuery, useCashflowQuery, useCompareQuery } from '../hooks/useAnalyticsData';
+import { useKpisQuery, useCashflowQuery } from '../hooks/useAnalyticsData';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { extractErrorMessage } from '../api/client';
-import { getLatestYear, getLatestActiveMonth, previousMonthKey, percentChange } from '../utils/analytics';
+import { getLatestYear } from '../utils/analytics';
 import type { RecentTransactionsFilter, TransactionFilters } from '../types';
 
 const PAID_ONLY_TOOLTIP = 'Only Paid transactions are counted. Pending transactions are excluded from all totals.';
@@ -36,26 +36,6 @@ export function DashboardPage() {
 
   const kpisQuery = useKpisQuery(latestYear);
   const cashflowQuery = useCashflowQuery(latestYear);
-
-  // Same "derive from real data" reasoning as latestYear above, one level down: the
-  // KPI delta chips compare the latest month that actually has transactions against
-  // the month before it, not the real calendar month.
-  const latestMonth = useMemo(
-    () => getLatestActiveMonth(summaryQuery.data?.yearly, latestYear),
-    [summaryQuery.data?.yearly, latestYear]
-  );
-  const priorMonth = useMemo(() => (latestMonth ? previousMonthKey(latestMonth) : undefined), [latestMonth]);
-  const compareQuery = useCompareQuery(latestMonth, priorMonth);
-
-  const revenueDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.revenue, compareQuery.data.periodB.revenue)
-    : undefined;
-  const expensesDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.expenses, compareQuery.data.periodB.expenses)
-    : undefined;
-  const balanceDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.balance, compareQuery.data.periodB.balance)
-    : undefined;
 
   return (
     <AppShell
@@ -79,8 +59,6 @@ export function DashboardPage() {
             accent="#22c55e"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={balanceDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Revenue"
@@ -89,8 +67,6 @@ export function DashboardPage() {
             accent="#22c55e"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={revenueDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Expenses"
@@ -99,8 +75,6 @@ export function DashboardPage() {
             accent="#f5a623"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={expensesDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Savings"

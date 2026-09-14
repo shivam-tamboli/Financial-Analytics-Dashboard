@@ -42,7 +42,7 @@ export function CashflowChart({ months, isLoading }: CashflowChartProps) {
   const hasData = months.some((m) => m.revenue !== 0 || m.expenses !== 0);
 
   return (
-    <Box bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5} h="full">
+    <Box bg="surface.panel" border="1px solid" borderColor="surface.border" borderRadius="xl" p={5}>
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
         <Text fontWeight={700} fontSize="lg">
           Cashflow

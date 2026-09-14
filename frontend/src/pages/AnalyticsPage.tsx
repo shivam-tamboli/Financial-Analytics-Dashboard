@@ -7,9 +7,9 @@ import { CashflowChart } from '../components/dashboard/CashflowChart';
 import { StatsDistributionWidget } from '../components/dashboard/StatsDistributionWidget';
 import { AlertChip } from '../components/common/AlertChip';
 import { useSummaryQuery } from '../hooks/useTransactionsData';
-import { useKpisQuery, useCashflowQuery, useCompareQuery } from '../hooks/useAnalyticsData';
+import { useKpisQuery, useCashflowQuery } from '../hooks/useAnalyticsData';
 import { extractErrorMessage } from '../api/client';
-import { getLatestYear, getLatestActiveMonth, previousMonthKey, percentChange } from '../utils/analytics';
+import { getLatestYear } from '../utils/analytics';
 
 const PAID_ONLY_TOOLTIP = 'Only Paid transactions are counted. Pending transactions are excluded from all totals.';
 const SAVINGS_TOOLTIP = 'Savings reflects your net balance after all paid expenses.';
@@ -22,25 +22,9 @@ export function AnalyticsPage() {
   // this session, so this page doesn't force a duplicate fetch on first paint.
   const summaryQuery = useSummaryQuery({}, {});
   const latestYear = useMemo(() => getLatestYear(summaryQuery.data?.yearly), [summaryQuery.data?.yearly]);
-  const latestMonth = useMemo(
-    () => getLatestActiveMonth(summaryQuery.data?.yearly, latestYear),
-    [summaryQuery.data?.yearly, latestYear]
-  );
-  const priorMonth = useMemo(() => (latestMonth ? previousMonthKey(latestMonth) : undefined), [latestMonth]);
 
   const kpisQuery = useKpisQuery(latestYear);
   const cashflowQuery = useCashflowQuery(latestYear);
-  const compareQuery = useCompareQuery(latestMonth, priorMonth);
-
-  const revenueDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.revenue, compareQuery.data.periodB.revenue)
-    : undefined;
-  const expensesDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.expenses, compareQuery.data.periodB.expenses)
-    : undefined;
-  const balanceDelta = compareQuery.data
-    ? percentChange(compareQuery.data.periodA.balance, compareQuery.data.periodB.balance)
-    : undefined;
 
   return (
     <AppShell title="Analytics" searchValue={search} onSearchChange={setSearch}>
@@ -57,8 +41,6 @@ export function AnalyticsPage() {
             accent="#22c55e"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={balanceDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Revenue"
@@ -67,8 +49,6 @@ export function AnalyticsPage() {
             accent="#22c55e"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={revenueDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Expenses"
@@ -77,8 +57,6 @@ export function AnalyticsPage() {
             accent="#f5a623"
             isLoading={kpisQuery.isLoading}
             tooltip={PAID_ONLY_TOOLTIP}
-            deltaPercent={expensesDelta}
-            deltaLoading={compareQuery.isLoading}
           />
           <MetricCard
             label="Savings"
