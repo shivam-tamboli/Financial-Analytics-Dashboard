@@ -2,11 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSummary, fetchTransactions, fetchTransactionUsers } from '../api/transactions';
 import type { RecentTransactionsFilter, TransactionFilters, TransactionQuery } from '../types';
 
-export function useTransactionsQuery(query: TransactionQuery) {
+export function useTransactionsQuery(query: TransactionQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['transactions', query],
     queryFn: () => fetchTransactions(query),
     placeholderData: (prev) => prev,
+    enabled: options?.enabled ?? true,
   });
 }
 

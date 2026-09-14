@@ -4,7 +4,9 @@ import type { Pagination as PaginationMeta } from '../../types';
 interface PaginationProps {
   pagination: PaginationMeta;
   onPageChange: (page: number) => void;
-  onLimitChange: (limit: number) => void;
+  onLimitChange?: (limit: number) => void;
+  /** Defaults to true. Set false for a fixed page size where changing it makes no sense. */
+  showLimitSelector?: boolean;
 }
 
 function getPageWindow(current: number, total: number): number[] {
@@ -18,7 +20,7 @@ function getPageWindow(current: number, total: number): number[] {
   return Array.from(pages).sort((a, b) => a - b);
 }
 
-export function Pagination({ pagination, onPageChange, onLimitChange }: PaginationProps) {
+export function Pagination({ pagination, onPageChange, onLimitChange, showLimitSelector = true }: PaginationProps) {
   const { page, limit, total, totalPages } = pagination;
   const start = total === 0 ? 0 : (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
@@ -30,21 +32,23 @@ export function Pagination({ pagination, onPageChange, onLimitChange }: Paginati
         <Text fontSize="sm" color="surface.muted">
           {total === 0 ? 'No results' : `Showing ${start}-${end} of ${total}`}
         </Text>
-        <Select
-          size="sm"
-          value={limit}
-          onChange={(e) => onLimitChange(Number(e.target.value))}
-          w="auto"
-          bg="surface.panelAlt"
-          border="1px solid"
-          borderColor="surface.border"
-        >
-          {[10, 20, 50].map((n) => (
-            <option key={n} value={n}>
-              {n} / page
-            </option>
-          ))}
-        </Select>
+        {showLimitSelector && onLimitChange && (
+          <Select
+            size="sm"
+            value={limit}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+            w="auto"
+            bg="surface.panelAlt"
+            border="1px solid"
+            borderColor="surface.border"
+          >
+            {[10, 20, 50].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </Select>
+        )}
       </HStack>
 
       <HStack spacing={1}>

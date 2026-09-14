@@ -24,7 +24,7 @@ interface Column {
   sortable: boolean;
 }
 
-const COLUMNS: Column[] = [
+const ALL_COLUMNS: Column[] = [
   { key: 'user_name', label: 'Name', sortable: true },
   { key: 'date', label: 'Date', sortable: true },
   { key: 'category', label: 'Category', sortable: true },
@@ -35,10 +35,12 @@ const COLUMNS: Column[] = [
 interface TransactionsTableProps {
   transactions: Transaction[];
   isLoading: boolean;
-  sortBy: SortableField;
-  sortOrder: SortOrder;
-  onSortChange: (field: SortableField) => void;
+  sortBy?: SortableField;
+  sortOrder?: SortOrder;
+  onSortChange?: (field: SortableField) => void;
   onRowClick?: (transaction: Transaction) => void;
+  /** Hides the Name/avatar column — for views already scoped to a single user. Defaults to true. */
+  showUserColumn?: boolean;
 }
 
 export function TransactionsTable({
@@ -48,19 +50,23 @@ export function TransactionsTable({
   sortOrder,
   onSortChange,
   onRowClick,
+  showUserColumn = true,
 }: TransactionsTableProps) {
+  const columns = showUserColumn ? ALL_COLUMNS : ALL_COLUMNS.filter((col) => col.key !== 'user_name');
+
   return (
     <Box overflowX="auto">
       <Table variant="simple" size="md">
         <Thead>
           <Tr>
-            {COLUMNS.map((col) => {
-              const isActive = sortBy === col.key;
+            {columns.map((col) => {
+              const isSortable = col.sortable && Boolean(onSortChange);
+              const isActive = isSortable && sortBy === col.key;
               return (
-                <Th key={col.key} cursor={col.sortable ? 'pointer' : 'default'} onClick={() => col.sortable && onSortChange(col.key)} userSelect="none">
+                <Th key={col.key} cursor={isSortable ? 'pointer' : 'default'} onClick={() => isSortable && onSortChange?.(col.key)} userSelect="none">
                   <HStack spacing={1}>
                     <Text>{col.label}</Text>
-                    {col.sortable && (
+                    {isSortable && (
                       <Icon
                         as={isActive ? (sortOrder === 'asc' ? FiArrowUp : FiArrowDown) : FiChevronsUp}
                         boxSize={3}
@@ -78,7 +84,7 @@ export function TransactionsTable({
           {isLoading &&
             [...Array(6)].map((_, i) => (
               <Tr key={i}>
-                {COLUMNS.map((col) => (
+                {columns.map((col) => (
                   <Td key={col.key}>
                     <Skeleton height="20px" startColor="surface.panelAlt" endColor="surface.border" />
                   </Td>
@@ -96,12 +102,14 @@ export function TransactionsTable({
                   cursor={onRowClick ? 'pointer' : undefined}
                   onClick={() => onRowClick?.(t)}
                 >
-                  <Td>
-                    <HStack spacing={3}>
-                      <Avatar size="sm" src={t.user_profile} name={t.user_name} />
-                      <Text fontWeight={500}>{t.user_name}</Text>
-                    </HStack>
-                  </Td>
+                  {showUserColumn && (
+                    <Td>
+                      <HStack spacing={3}>
+                        <Avatar size="sm" src={t.user_profile} name={t.user_name} />
+                        <Text fontWeight={500}>{t.user_name}</Text>
+                      </HStack>
+                    </Td>
+                  )}
                   <Td color="surface.muted" fontSize="sm">
                     {formatShortDate(t.date)}
                   </Td>
