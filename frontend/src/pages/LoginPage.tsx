@@ -14,7 +14,7 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react';
-import { FiEye, FiEyeOff, FiTrendingUp } from 'react-icons/fi';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { AlertChip } from '../components/common/AlertChip';
 
@@ -49,17 +49,7 @@ export function LoginPage() {
       >
         <Stack spacing={1} mb={8} align="center">
           <Flex align="center" gap={2} mb={2}>
-            <Flex
-              boxSize={9}
-              borderRadius="lg"
-              bg="brand.500"
-              align="center"
-              justify="center"
-              color="black"
-              fontWeight={800}
-            >
-              <Icon as={FiTrendingUp} boxSize={5} />
-            </Flex>
+            <Box as="img" src="/Pentalogo.png" alt="Penta" boxSize={9} objectFit="contain" />
             <Heading size="lg" letterSpacing="tight">
               Penta
             </Heading>
