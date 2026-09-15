@@ -1,0 +1,366 @@
+{
+  "info": {
+    "_postman_id": "b7e2f3a0-4b2a-4f1e-9c3a-financial-analytics-dashboard",
+    "name": "Financial Analytics Dashboard",
+    "description": "Complete API collection for the Financial Analytics Dashboard backend (Express + MongoDB + JWT auth). Every route in the codebase is represented: Auth, Transactions, Analytics, Users, and a Health check.\n\nSetup:\n1. Set the `base_url` collection variable to your running backend (defaults to http://localhost:5050).\n2. Run \"Auth > Login\" — its test script automatically saves the returned token into the `token` collection variable.\n3. All other requests inherit a Bearer token auth using `{{token}}` from the collection level.\n\nDefault seed credentials (from backend/.env SEED_ADMIN_*): username `analyst`, password `Analyst@123`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5050",
+      "type": "string",
+      "description": "Backend base URL. Swap to the Render deployment URL to hit production, e.g. https://your-app.onrender.com"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT returned by POST /api/auth/login. Auto-populated by that request's test script; can also be set manually."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "description": "Unauthenticated liveness check, mounted directly in app.ts (not under any resource router).",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Basic liveness probe. No authentication required. Returns `{ status: \"ok\", timestamp: <ISO string> }`. Registered before Helmet/CORS in app.ts, so it always responds even if those reject the request elsewhere."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Login, current-session lookup, and logout. All routes except /login require a Bearer token.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('token', json.token);",
+                  "        console.log('Saved token to collection variable {{token}}');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"analyst\",\n  \"password\": \"Analyst@123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Logs in with username/password and returns a JWT. Rate-limited to 20 attempts per 15 minutes per IP.\n\nRequest body (required): `{ username: string, password: string }`.\n\nDefault seeded credentials: `analyst` / `Analyst@123` (from backend/.env SEED_ADMIN_USERNAME / SEED_ADMIN_PASSWORD).\n\nResponse 200: `{ token: string, user: { id, username, name } }`.\nResponse 401: invalid username or password.\n\nThe test script on this request automatically stores the returned token in the `{{token}}` collection variable for use by every other request."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Returns the user derived from the JWT's claims (no DB lookup). Requires `Authorization: Bearer {{token}}`.\n\nResponse 200: `{ user: { id, username, name } }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "JWTs are stateless — there is no server-side session to revoke. This endpoint exists purely so a real login/logout pair exists server-side; the token is actually invalidated by discarding it client-side. Requires `Authorization: Bearer {{token}}`.\n\nResponse 200: `{ message: string }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "Listing, aggregate summaries, per-user directory, stats, CSV/JSON export, and single-record lookup. All routes require a Bearer token.",
+      "item": [
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions?page=1&limit=10&sortBy=date&sortOrder=desc&search=Jerome&category=Revenue&status=Paid&userId=user_002&dateFrom=2024-01-01&dateTo=2024-12-31&year=2024&month=6&amountMin=100&amountMax=5000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number, 1-indexed. Default 1." },
+                { "key": "limit", "value": "10", "description": "Rows per page, max 100. Default 10." },
+                { "key": "sortBy", "value": "date", "description": "One of: date, amount, category, status, user_name. Default date." },
+                { "key": "sortOrder", "value": "desc", "description": "asc or desc. Default desc." },
+                { "key": "search", "value": "Jerome", "description": "Matches user name/id, category, status, or amount if the term is numeric.", "disabled": true },
+                { "key": "category", "value": "Revenue", "description": "Revenue or Expense.", "disabled": true },
+                { "key": "status", "value": "Paid", "description": "Paid or Pending (case-insensitive; 'completed' is a synonym for Paid).", "disabled": true },
+                { "key": "userId", "value": "user_002", "description": "Exact user_id match.", "disabled": true },
+                { "key": "dateFrom", "value": "2024-01-01", "description": "ISO date, inclusive lower bound. Ignored if year is set.", "disabled": true },
+                { "key": "dateTo", "value": "2024-12-31", "description": "ISO date, inclusive upper bound. Ignored if year is set.", "disabled": true },
+                { "key": "year", "value": "2024", "description": "Scopes to that calendar year; takes precedence over dateFrom/dateTo.", "disabled": true },
+                { "key": "month", "value": "6", "description": "1-12. Narrows year to a single month; ignored without year.", "disabled": true },
+                { "key": "amountMin", "value": "100", "description": "Inclusive lower bound on amount.", "disabled": true },
+                { "key": "amountMax", "value": "5000", "description": "Inclusive upper bound on amount.", "disabled": true }
+              ]
+            },
+            "description": "Paginated, filterable, sortable, searchable transaction list.\n\nResponse 200: `{ data: Transaction[], pagination: { page, limit, total, totalPages } }`.\nResponse 400: invalid query parameters.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transactions Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/summary?category=Revenue&status=Paid&userId=user_002&dateFrom=2024-01-01&dateTo=2024-12-31&year=2024&month=6&amountMin=100&amountMax=5000&filterBy=month&user=user_002&limit=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "summary"],
+              "query": [
+                { "key": "category", "value": "Revenue", "description": "Revenue or Expense.", "disabled": true },
+                { "key": "status", "value": "Paid", "description": "Paid or Pending. Note: summary/expenses/balance are always Paid-only regardless of this filter.", "disabled": true },
+                { "key": "userId", "value": "user_002", "description": "Exact user_id match.", "disabled": true },
+                { "key": "dateFrom", "value": "2024-01-01", "description": "ISO date, inclusive lower bound.", "disabled": true },
+                { "key": "dateTo", "value": "2024-12-31", "description": "ISO date, inclusive upper bound.", "disabled": true },
+                { "key": "year", "value": "2024", "description": "Scopes revenue/expenses/balance/categoryBreakdown/yearly to this year.", "disabled": true },
+                { "key": "month", "value": "6", "description": "1-12. Requires year.", "disabled": true },
+                { "key": "amountMin", "value": "100", "description": "Inclusive lower bound on amount.", "disabled": true },
+                { "key": "amountMax", "value": "5000", "description": "Inclusive upper bound on amount.", "disabled": true },
+                { "key": "filterBy", "value": "month", "description": "Advisory only: one of date, status, user, month, year. Doesn't change behavior by itself.", "disabled": true },
+                { "key": "user", "value": "user_002", "description": "Matches user_id exactly or user_name as a substring — scopes recentTransactions only.", "disabled": true },
+                { "key": "limit", "value": "5", "description": "How many recentTransactions to return, max 50. Default 5." }
+              ]
+            },
+            "description": "Dashboard summary: totals, category breakdown, yearly/monthly rollup, and recent transactions. Accepts the same filters as the list endpoint (no pagination/sort). Revenue/expenses/balance are always Paid-only regardless of the `status` filter passed. categoryBreakdown + yearly are cached briefly in memory; recentTransactions is always live.\n\nResponse 200: `{ summary: { balance, revenue, expenses }, categoryBreakdown: [...], yearly: {...}, recentTransactions: { data, total, limit } }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Compare Two Periods",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/summary/compare?periodA=2024-01&periodB=2024-02&status=Paid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "summary", "compare"],
+              "query": [
+                { "key": "periodA", "value": "2024-01", "description": "Required. Format YYYY-MM." },
+                { "key": "periodB", "value": "2024-02", "description": "Required. Format YYYY-MM." },
+                { "key": "status", "value": "Paid", "description": "Paid, Pending, or all. Default Paid.", "disabled": true }
+              ]
+            },
+            "description": "Compares revenue/expenses/balance between two calendar months. Defaults to Paid-only; the response's `data.filter` states exactly which status was compared.\n\nResponse 200: `{ data: { filter, periodA: { period, revenue, expenses, balance }, periodB: {...}, difference: { revenue, expenses, balance } } }`.\nResponse 400: periodA/periodB not in YYYY-MM format.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "List Transaction Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "users"]
+            },
+            "description": "Distinct transacting users found in the transaction dataset, for filter dropdowns. No query parameters.\n\nResponse 200: `{ users: [{ user_id, user_name, user_profile }] }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/stats?status=Paid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "stats"],
+              "query": [
+                { "key": "status", "value": "Paid", "description": "Paid, Pending, or all. Default Paid. Use 'all' to see the Paid-vs-Pending split in byStatus." }
+              ]
+            },
+            "description": "Dataset stats: total count, total volume, breakdown by status, breakdown by category — all scoped by the same `status` filter.\n\nResponse 200: `{ data: { filter, totalCount, totalVolume, byStatus: [{status,count,total}], byCategory: [{category,count,total}] } }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Export Transactions (CSV)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"csv\",\n  \"columns\": [\"id\", \"date\", \"amount\", \"category\", \"status\", \"user_id\", \"user_name\"],\n  \"filters\": {\n    \"status\": \"Paid\",\n    \"year\": 2024\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/transactions/export",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "export"]
+            },
+            "description": "Streams back a CSV file (Content-Disposition: attachment). `format` defaults to \"csv\" if omitted. `columns` defaults to all exportable columns if omitted: id, date, amount, category, status, user_id, user_name. `filters` accepts the same shape as the list endpoint's query filters.\n\nResponse 200: `text/csv` file body.\nResponse 404: no transactions match the given filters.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Export Transactions (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"json\",\n  \"columns\": [\"id\", \"date\", \"amount\", \"category\", \"status\", \"user_id\", \"user_name\"],\n  \"filters\": {\n    \"status\": \"Paid\",\n    \"year\": 2024\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/transactions/export",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "export"]
+            },
+            "description": "Same endpoint as the CSV export, with `format: \"json\"`. Streams back a JSON array of objects containing only the selected `columns`, with native types (amount as a number, date as a full ISO timestamp) rather than CSV's stringified cells.\n\nResponse 200: `application/json` array body, e.g. `[{ id, date, amount, category, status, user_id, user_name }, ...]`.\nResponse 404: no transactions match the given filters.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", ":id"],
+              "variable": [
+                { "key": "id", "value": "66d1f0c9a1b2c3d4e5f60789", "description": "Mongo ObjectId of the transaction." }
+              ]
+            },
+            "description": "Fetches a single transaction by its Mongo _id.\n\nResponse 200: `{ data: Transaction }`.\nResponse 400: id is not a valid Mongo ObjectId.\nResponse 404: no transaction with that id.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Aggregate KPI and cashflow endpoints, both Paid-only by default. All routes require a Bearer token.",
+      "item": [
+        {
+          "name": "Get KPIs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/kpis?status=Paid&year=2024",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "kpis"],
+              "query": [
+                { "key": "status", "value": "Paid", "description": "Paid, Pending, or all. Default Paid.", "disabled": true },
+                { "key": "year", "value": "2024", "description": "Scopes all figures to one calendar year (UTC). Omit for all-time totals.", "disabled": true }
+              ]
+            },
+            "description": "Key metrics: revenue, expenses, balance, transaction count, average transaction value, top category. Defaults to Paid-only, all-time. count/averageTransactionValue always describe the exact same filtered set as revenue/expenses.\n\nResponse 200: `{ data: { filter, year, revenue, expenses, balance, transactionCount, averageTransactionValue, topCategory } }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cashflow",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/cashflow?year=2024&status=Paid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "cashflow"],
+              "query": [
+                { "key": "year", "value": "2024", "description": "Defaults to the latest year with data under the given status filter.", "disabled": true },
+                { "key": "status", "value": "Paid", "description": "Paid, Pending, or all. Default Paid.", "disabled": true }
+              ]
+            },
+            "description": "Monthly cashflow (revenue minus expenses) for a year — always returns exactly 12 months. Defaults to Paid-only and to the most recent year that actually has data under that status filter, not the real calendar year the server is running in.\n\nResponse 200: `{ data: { year, filter, months: [{ month, revenue, expenses, cashflow }] } }`.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Per-user financial summary, keyed by the transaction dataset's user_id. Requires a Bearer token.",
+      "item": [
+        {
+          "name": "Get User Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/:id/summary",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":id", "summary"],
+              "variable": [
+                { "key": "id", "value": "user_001", "description": "The transaction dataset's user_id (e.g. user_001) — not a login account." }
+              ]
+            },
+            "description": "A single user's totals. revenue/expenses/balance are Paid-only; transactionCount counts every transaction for that user regardless of status.\n\nResponse 200: `{ data: { user_id, user_name, revenue, expenses, balance, transactionCount } }`.\nResponse 404: no transactions found for that user id.\nResponse 401: missing or invalid token."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
