@@ -161,7 +161,7 @@ Not asked for, built anyway:
 ## API
 
 Everything's under `/api`, JWT-protected except login and the health check. Full schemas at
-**`/api/docs`** (Swagger UI). `postman_collection.json` has the same endpoints pre-built.
+**[`/api/docs`](https://financial-analytics-dashboard-r2s9.onrender.com/api/docs)** (Swagger UI). `postman_collection.json` has the same endpoints pre-built.
 
 - `GET /api/health` — liveness check, no auth
 - `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
